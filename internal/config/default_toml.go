@@ -1,6 +1,5 @@
 package config
 
-// DefaultTOML is the commented config file that `xis init` writes.
 const DefaultTOML = `# xis configuration.
 # xis reads this file, then <repo>/.xis.toml, then XIS_* environment variables.
 # Example: XIS_LLM_PROVIDER=none turns off the LLM layer for one command.

@@ -1,6 +1,3 @@
-// Package config loads the xis configuration. The order of precedence is:
-// built-in defaults, the user config file, the repo file .xis.toml, and
-// then XIS_* environment variables.
 package config
 
 import (
@@ -15,7 +12,6 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is the full xis configuration.
 type Config struct {
 	Capture   Capture   `toml:"capture"`
 	LLM       LLM       `toml:"llm"`
@@ -27,7 +23,6 @@ type Config struct {
 	UI        UI        `toml:"ui"`
 }
 
-// Capture controls hook capture and snapshots.
 type Capture struct {
 	Precise        bool     `toml:"precise"`
 	Exclude        []string `toml:"exclude"`
@@ -39,7 +34,6 @@ type Capture struct {
 	TestGlobs      []string `toml:"test_globs"`
 }
 
-// LLM controls the optional LLM layer.
 type LLM struct {
 	Provider           string  `toml:"provider"`
 	Model              string  `toml:"model"`
@@ -52,7 +46,6 @@ type LLM struct {
 	MaxTokens          int     `toml:"max_tokens"`
 }
 
-// Rules controls the rules engine.
 type Rules struct {
 	Disabled         []string          `toml:"disabled"`
 	Severity         map[string]string `toml:"severity"`
@@ -61,36 +54,30 @@ type Rules struct {
 	RetryLoopRuns    int               `toml:"retry_loop_runs"`
 }
 
-// Scope adds paths to the inferred scope of a change.
 type Scope struct {
 	Paths []string `toml:"paths"`
 }
 
-// Redact controls secret detection.
 type Redact struct {
 	Patterns         []string `toml:"patterns"`
 	EntropyThreshold float64  `toml:"entropy_threshold"`
 	EntropyMinLength int      `toml:"entropy_min_length"`
 }
 
-// Retention controls how long xis keeps data.
 type Retention struct {
 	SnapshotsDays int `toml:"snapshots_days"`
 	RawDays       int `toml:"raw_days"`
 }
 
-// Notes controls git notes.
 type Notes struct {
 	Auto bool `toml:"auto"`
 }
 
-// UI controls the terminal UI.
 type UI struct {
 	Theme  string            `toml:"theme"`
 	Keymap map[string]string `toml:"keymap"`
 }
 
-// Default returns the built-in configuration.
 func Default() Config {
 	return Config{
 		Capture: Capture{
@@ -130,8 +117,6 @@ func Default() Config {
 	}
 }
 
-// Load reads the user config file, then repoDir/.xis.toml (if repoDir is
-// not empty), then XIS_* environment variables.
 func Load(p Paths, repoDir string) (Config, error) {
 	c := Default()
 	if err := mergeFile(&c, p.ConfigFile); err != nil {
@@ -158,8 +143,6 @@ func mergeFile(c *Config, path string) error {
 	return nil
 }
 
-// EffectiveProvider resolves "auto": it returns "anthropic" if the API key
-// variable is set, else "none".
 func (l LLM) EffectiveProvider() string {
 	p := strings.ToLower(strings.TrimSpace(l.Provider))
 	if p == "" || p == "auto" {
@@ -171,7 +154,6 @@ func (l LLM) EffectiveProvider() string {
 	return p
 }
 
-// field is one scalar or list config key, for example "llm.model".
 type field struct {
 	Key   string
 	Value reflect.Value
@@ -192,7 +174,6 @@ func fields(c *Config) []field {
 	return out
 }
 
-// Keys returns all config keys in sorted order.
 func Keys() []string {
 	c := Default()
 	var ks []string
@@ -203,7 +184,6 @@ func Keys() []string {
 	return ks
 }
 
-// Get returns the value of a dotted key as a string.
 func (c Config) Get(key string) (string, error) {
 	for _, f := range fields(&c) {
 		if f.Key == key {
@@ -234,7 +214,6 @@ func formatValue(v reflect.Value) string {
 	}
 }
 
-// parseValue converts s into a value that fits the type of target.
 func parseValue(target reflect.Value, s string) (any, error) {
 	switch target.Kind() {
 	case reflect.String:
@@ -280,8 +259,6 @@ func assign(target reflect.Value, v any) {
 	}
 }
 
-// applyEnv applies XIS_<SECTION>_<KEY> variables, for example
-// XIS_LLM_PROVIDER=none.
 func applyEnv(c *Config, environ []string) error {
 	env := map[string]string{}
 	for _, kv := range environ {
@@ -304,8 +281,6 @@ func applyEnv(c *Config, environ []string) error {
 	return nil
 }
 
-// SetInFile sets one dotted key in the TOML file at path. It keeps the other
-// keys in the file. It does not keep comments.
 func SetInFile(path, key, value string) error {
 	def := Default()
 	var target reflect.Value
@@ -341,7 +316,6 @@ func SetInFile(path, key, value string) error {
 	return WriteFile(path, []byte(b.String()))
 }
 
-// Validate checks values that have a fixed set of choices.
 func (c Config) Validate() error {
 	switch c.LLM.EffectiveProvider() {
 	case "anthropic", "openaicompat", "none", "mock":

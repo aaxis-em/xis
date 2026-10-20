@@ -1,9 +1,3 @@
-// Command doclint checks Markdown files against the xis writing rules
-// (about 80% ASD-STE100). It reports long sentences, common passive
-// patterns and non-preferred words. It only warns: the exit code is 0
-// unless you give -strict.
-//
-// Usage: go run ./internal/tools/doclint [-strict] FILE_OR_DIR...
 package main
 
 import (

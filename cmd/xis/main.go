@@ -1,4 +1,3 @@
-// Command xis shows what an AI coding agent did to your code and why.
 package main
 
 import (

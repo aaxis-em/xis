@@ -43,3 +43,21 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Section 4 has no package for logging or version data.
 - **Choice:** Two small packages: `internal/xlog` (the rotating log file) and `internal/buildinfo` (version, commit, date).
 - **Why:** Many packages need them. A shared package prevents import cycles.
+
+## D8. Hook events in the database
+
+- **Context:** Ingest must delete the spool file after success. A session can continue after ingest, for example after a `Stop` event or with `claude --resume`. A second ingest then sees only the new spool events.
+- **Choice:** Migration `0002` adds the table `hook_events`. Ingest stores each redacted hook event there. A later ingest merges the stored events with the new spool events and builds the session again.
+- **Why:** Ingest stays idempotent, and xis keeps no raw (unredacted) data after ingest.
+
+## D9. Suppressions by fingerprint
+
+- **Context:** xis computes the flags of a change again when the change changes. New flag rows get new IDs.
+- **Choice:** Migration `0002` adds the table `suppressions` and the column `flags.fingerprint`. `xis flags suppress` stores the fingerprint of the flag. A new flag with the same fingerprint is suppressed.
+- **Why:** A suppression must survive a new computation of the flags. The reason must stay visible in reports.
+
+## D10. Unattributed lines in `hunk_provenance`
+
+- **Context:** A hunk can contain lines that no captured step wrote.
+- **Choice:** The provenance row with step ID `unattributed` counts these lines.
+- **Why:** The contributor of a hunk (`ai`, `human`, `mixed` or `unknown`) needs this count. No new table is necessary.

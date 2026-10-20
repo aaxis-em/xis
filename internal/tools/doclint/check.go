@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// Warning is one problem in a document.
 type Warning struct {
 	Line int
 	Msg  string
@@ -17,7 +16,6 @@ const (
 	maxDescriptive = 25
 )
 
-// nonPreferred maps a non-preferred word to the preferred word.
 var nonPreferred = map[string]string{
 	"utilize": "use", "utilise": "use", "utilizes": "uses", "utilized": "used",
 	"initiate": "start", "initiates": "starts", "initiated": "started",
@@ -32,7 +30,6 @@ var nonPreferred = map[string]string{
 	"warning flag": "flag", "alert": "flag", "alerts": "flags",
 }
 
-// imperative verbs that start procedural sentences.
 var imperative = map[string]bool{
 	"run": true, "add": true, "use": true, "set": true, "open": true, "install": true,
 	"create": true, "delete": true, "remove": true, "start": true, "stop": true,
@@ -51,7 +48,6 @@ var (
 	reWord       = regexp.MustCompile(`[A-Za-z0-9_'’-]+`)
 )
 
-// passiveExceptions holds "-ed" words that are adjectives in normal use.
 var passiveExceptions = map[string]bool{
 	"need": true, "based": true, "installed": true, "enabled": true,
 	"disabled": true, "required": true, "supported": true, "signed": true,
@@ -63,8 +59,6 @@ var passiveExceptions = map[string]bool{
 	"related": true, "interested": true, "expected": true, "fixed": true,
 }
 
-// Check returns warnings for the Markdown text. It skips code blocks,
-// tables, headings, HTML comments and quoted agent text.
 func Check(text string) []Warning {
 	var out []Warning
 	inFence := false
@@ -89,7 +83,7 @@ func Check(text string) []Warning {
 		case trim == "", strings.HasPrefix(trim, "#"), strings.HasPrefix(trim, "|"):
 			continue
 		case strings.HasPrefix(trim, "> \"") || strings.HasPrefix(trim, ">\""):
-			continue // quoted agent text
+			continue
 		}
 		procedural := reNumbered.MatchString(line)
 		body := reListMarker.ReplaceAllString(trim, "")
@@ -127,9 +121,6 @@ func Check(text string) []Warning {
 	return out
 }
 
-// splitSentences splits text at ". ", "! " and "? ". It keeps "e.g." and
-// file names such as "config.toml" in one sentence because the split needs
-// a space after the period.
 func splitSentences(s string) []string {
 	var out []string
 	start := 0

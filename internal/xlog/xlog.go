@@ -1,5 +1,3 @@
-// Package xlog writes the xis log file. The log rotates at 5 MB and keeps
-// the last 5 files. By default the log contains only event names and IDs.
 package xlog
 
 import (
@@ -16,13 +14,11 @@ const (
 	maxFiles = 5
 )
 
-// Writer is an io.Writer that appends to a file and rotates it.
 type Writer struct {
 	mu   sync.Mutex
 	path string
 }
 
-// NewWriter returns a rotating writer for path.
 func NewWriter(path string) *Writer { return &Writer{path: path} }
 
 func (w *Writer) Write(p []byte) (int, error) {
@@ -42,8 +38,6 @@ func (w *Writer) Write(p []byte) (int, error) {
 	return f.Write(p)
 }
 
-// rotate renames xis.log to xis.log.1, xis.log.1 to xis.log.2, and so on.
-// The oldest file is removed.
 func (w *Writer) rotate() {
 	_ = os.Remove(fmt.Sprintf("%s.%d", w.path, maxFiles-1))
 	for i := maxFiles - 2; i >= 1; i-- {
@@ -52,8 +46,6 @@ func (w *Writer) rotate() {
 	_ = os.Rename(w.path, w.path+".1")
 }
 
-// Init sets the default slog logger to write to path. If verbose is true,
-// the logger also writes debug records and copies records to stderr.
 func Init(path string, verbose bool) {
 	level := slog.LevelInfo
 	var out io.Writer = NewWriter(path)
@@ -64,7 +56,6 @@ func Init(path string, verbose bool) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(out, &slog.HandlerOptions{Level: level})))
 }
 
-// Discard sets the default logger to discard all records.
 func Discard() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 }

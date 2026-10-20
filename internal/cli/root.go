@@ -1,4 +1,3 @@
-// Package cli holds the cobra commands of xis.
 package cli
 
 import (
@@ -16,7 +15,6 @@ import (
 	"github.com/aaxis-em/xis/internal/xlog"
 )
 
-// Error is an error with a hint for the user and an exit code.
 type Error struct {
 	Msg  string
 	Hint string
@@ -27,17 +25,14 @@ type Error struct {
 func (e *Error) Error() string { return e.Msg }
 func (e *Error) Unwrap() error { return e.Err }
 
-// userErr returns an Error with exit code 1.
 func userErr(msg, hint string, err error) *Error {
 	return &Error{Msg: msg, Hint: hint, Code: 1, Err: err}
 }
 
-// exitCode is an error that only sets the exit code. Execute prints nothing for it.
 type exitCode int
 
 func (e exitCode) Error() string { return fmt.Sprintf("exit %d", int(e)) }
 
-// globals holds the values of the persistent flags.
 type globals struct {
 	repo    string
 	json    bool
@@ -45,7 +40,6 @@ type globals struct {
 	verbose bool
 }
 
-// App is the shared state of one command run.
 type App struct {
 	Paths   config.Paths
 	Cfg     config.Config
@@ -60,7 +54,6 @@ type App struct {
 
 var g globals
 
-// newApp loads paths, config and logging for a command.
 func newApp(cmd *cobra.Command) *App {
 	a := &App{
 		Paths:   config.DefaultPaths(),
@@ -79,7 +72,6 @@ func newApp(cmd *cobra.Command) *App {
 	return a
 }
 
-// requireConfig returns the config load error as a user error.
 func (a *App) requireConfig() error {
 	if a.cfgErr != nil {
 		return userErr("config: "+a.cfgErr.Error(), "Run `xis config path` to find the config file.", a.cfgErr)
@@ -87,7 +79,6 @@ func (a *App) requireConfig() error {
 	return nil
 }
 
-// requireRepo returns an error if the command does not run in a git repo.
 func (a *App) requireRepo() error {
 	if a.RepoDir == "" {
 		return userErr("not inside a git repository", "Run the command in a repository, or use --repo PATH.", nil)
@@ -95,8 +86,6 @@ func (a *App) requireRepo() error {
 	return nil
 }
 
-// findRepo returns the top-level directory of the git repo that contains
-// start (or the current directory). It does not run git, so it is fast.
 func findRepo(start string) string {
 	dir := start
 	if dir == "" {
@@ -120,7 +109,6 @@ func findRepo(start string) string {
 
 func (a *App) printf(format string, args ...any) { fmt.Fprintf(a.Out, format, args...) }
 
-// NewRoot returns the root command with all subcommands.
 func NewRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "xis",
@@ -144,12 +132,10 @@ It flags risky behaviour with fixed rules. The rules need no LLM.`,
 	return root
 }
 
-// commandSet holds the constructors of the subcommands that other files add.
 var commandSet []func() *cobra.Command
 
 func register(f func() *cobra.Command) { commandSet = append(commandSet, f) }
 
-// Execute runs the CLI and returns the process exit code.
 func Execute(args []string) int {
 	g = globals{}
 	root := NewRoot()

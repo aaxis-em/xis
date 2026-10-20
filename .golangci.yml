@@ -16,6 +16,11 @@ linters:
         - fmt.Fprint
         - (io.Closer).Close
         - (*os.File).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Tx).Rollback
+        - os.Remove
+        - os.RemoveAll
   exclusions:
     rules:
       - path: _test\.go
