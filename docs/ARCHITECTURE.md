@@ -17,6 +17,10 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 | `internal/snapshot` | The shadow repository and the snapshots. |
 | `internal/capture` | The hook handler, the spool and the hook installation. |
 | `internal/adapters/claudecode` | The Claude Code hook payload and transcript formats. |
+| `internal/redact` | Secret detection (gitleaks rules, entropy, user patterns) and masking. |
+| `internal/testdetect` | Test files, test commands, test outcomes and manifest files. |
+| `internal/ingest` | The pipeline from the spool and the transcript to the database. |
+| `internal/attribution` | Changes, hunks, provenance, change types and review units. |
 | `internal/notes` | The signing key and (later) the git notes. |
 | `internal/model` | The canonical types. |
 | `internal/store` | The SQLite database and the migrations. |
@@ -171,3 +175,93 @@ The transcript is a JSONL file. Each line has a `type`. xis reads these types an
 | `system` | `subtype`, for example `compact_boundary` or `stop_hook_summary`. |
 
 Each entry has `uuid`, `parentUuid`, `timestamp`, `isSidechain`, `cwd`, `version` and `gitBranch`. The `thinking` text can be empty. Subagent transcripts are in `<session_id>/subagents/agent-<agent_id>.jsonl` next to the main transcript.
+
+## Ingest
+
+Ingest turns the hook events and the transcript of one session into canonical records.
+
+This diagram shows the ingest pipeline.
+
+```mermaid
+flowchart LR
+    spool[(Spool)] --> merge[Merge with stored hook events]
+    stored[(Stored hook events)] --> merge
+    merge --> adapter[Adapter: join on tool_use_id]
+    transcript[(Transcript)] --> adapter
+    adapter --> redact[Redact]
+    redact --> edits[Edits from snapshots]
+    edits --> tests[Detect test runs]
+    tests --> db[(Database)]
+    db --> del[Delete spool file]
+```
+
+The steps of the pipeline are:
+
+1. Ingest reads the spool file. It adds the hook events that the database has already for the session. Thus a second ingest sees all events.
+2. The adapter reads the transcript. The transcript gives the agent text, the reasoning, the prompts and the tool results. The hook events give the times and the snapshots. The adapter joins the two on `tool_use_id`. If the transcript is missing, the adapter uses the hook events only. Then the session status contains `no_transcript`.
+3. Ingest removes secrets from all text, tool inputs, tool outputs and patches. It truncates tool output to `capture.max_output_bytes`.
+4. For each pair of consecutive snapshots, ingest runs `git diff` in the shadow repository. The result is the edits of the step that made the later snapshot.
+5. A snapshot at `UserPromptSubmit` that differs from the snapshot before it becomes a `human_edit` step. The user changed files between turns.
+6. Ingest finds the shell tool calls that ran tests and parses their outcome.
+7. Ingest writes all records in one transaction. Then it deletes the spool file.
+
+Ingest makes all IDs from stable input. A second ingest of a session replaces its derived rows and keeps the same IDs.
+
+### Test outcome
+
+xis never guesses `pass`. The table shows how xis decides the outcome of a test run.
+
+| Exit code | Summary line in the output | Outcome |
+| --- | --- | --- |
+| not 0 | none, pass or fail | `fail` |
+| not 0 | error (for example `[setup failed]`) | `error` |
+| 0 or none | fail, error or pass | the summary |
+| 0 | none, and the command cannot hide the exit code | `pass` |
+| 0 | none, and the command has `;`, `\|\|` or `\|` | `unknown` |
+| none | none | `unknown` |
+
+Claude Code gives no exit code for a successful `Bash` call. A failed call causes `PostToolUseFailure` with `Exit code N`. Thus xis takes 0 for a successful call that was not interrupted.
+
+## Attribution
+
+A change has a base and a target. The table shows the change options.
+
+| Option | Base | Target | Sessions |
+| --- | --- | --- | --- |
+| (default) | `HEAD` at session start | the working tree | the given session or the latest session |
+| `--staged` | `HEAD` | the index | the sessions that started on `HEAD` |
+| `--range A..B` | `A` | `B` | the sessions that started on `A` or on a commit in `A..B` |
+| `--pr` | the merge base with the default branch | `HEAD` | as `--range` |
+
+To attribute the change, xis makes one more commit in the shadow repository, the attribution commit. Its tree is the target. Its parents are the final snapshots of the sessions. Then `git blame -w -M` on the attribution commit follows each line back through the snapshot chain.
+
+This diagram shows how a line of a final hunk maps back to a step.
+
+```mermaid
+flowchart RL
+    T[Attribution commit<br/>target tree] --> S3[Snapshot after step 9]
+    S3 --> S2[Snapshot after step 5]
+    S2 --> S1[Snapshot after step 2]
+    S1 --> S0[Snapshot at session start]
+    S0 --> H[HEAD of the user]
+    B{{git blame}} -.line 12.-> S2
+    S2 -.snapshot of.-> ST[Step 5: Edit calc.go]
+```
+
+Each snapshot commit belongs to one step. Blame gives the commit that added each line. The commit gives the step. These rules apply:
+
+- A line that blame gives to the attribution commit changed outside all captured steps. xis counts it as `unattributed`.
+- A line that blame gives to the first snapshot or to the user history is not from a captured step. xis counts it as `unattributed`.
+- A line from a `human_edit` step has the human as contributor.
+- For a removed line, xis finds the first edit of the session that removed a line with the same text.
+- A binary file or a file larger than `capture.max_file_bytes` gets no line attribution. xis gives the whole hunk to the last step that edited the file.
+
+### Change type and review units
+
+xis gives each hunk a change type with fixed rules. The first rule that matches wins. The order is `test` (test file), `generated`, `dependency` (manifests and lock files), `config` (CI and build files), `docs` and `refactor` (rename or whitespace only). All other hunks get `behavior`.
+
+Without an LLM, xis groups the hunks by change type, then by top-level directory. The order is behavior, config, dependency, tests, refactor, docs and generated. The ID of a review unit comes from its group key. Thus the status of a unit stays when the change changes.
+
+### Content hash
+
+The content hash of a hunk is the Agent Trace range hash: `murmur3:` and 8 hex digits. xis hashes the added lines with 32-bit MurmurHash3 (seed 0). Before the hash, xis collapses whitespace in each line and joins the lines with `\n`.

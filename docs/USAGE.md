@@ -75,3 +75,56 @@ $ xis config set llm.provider none
 $ xis config get llm.provider
 none
 ```
+
+## `xis ingest`
+
+The hooks start ingest automatically when a session stops. The command `xis ingest` ingests all spooled sessions. Use `--session ID` for one session. Other commands ingest pending sessions before they start.
+
+```console
+$ xis ingest
+ingested 01M5CRVYT5 (agent session 9287fccd-7bef-438f-9387-8921f229846e): 8 steps, 3 edits, 1 test runs
+```
+
+## `xis sessions`
+
+The command lists the sessions of the repository, the newest first. Use `--all` for all repositories and `--limit N` for more rows.
+
+```console
+$ xis sessions
+ID          AGENT        FIDELITY  STARTED           DURATION  STEPS  FILES  FLAGS (H/M/L)  STATUS
+01M5CRVYT5  claude-code  live      2026-10-20 19:28  12s       8      2      0/0/0          ended
+```
+
+## `xis timeline`
+
+The command prints the steps of a session. The command indents subagent steps. For a step with edits, it shows how many hunks of the change survive. A step whose edits do not survive is "abandoned".
+
+```console
+$ xis timeline
+session 01M5CRVYT5 · claude-code 2.1.304 (live) · 8 steps · 2026-10-20 19:28
+   1     +2s user_message Read calc.go. Add a function Sub(a, b int) int ...
+   2     +4s tool      Read calc.go
+   4     +7s tool      Edit calc.go  → calc.go +3 -0 · 1 hunks survive
+   6     +9s tool      Bash: go test ./... [test PASS]
+   7    +11s tool      Bash: sed -i 's/returns a + b/.../' calc.go  → calc.go +1 -1 · 1 hunks survive
+   8    +13s assistant_message Yes, the tests pass.
+```
+
+## `xis why`
+
+The command shows the origin of one line of the working tree. It needs no LLM.
+
+```console
+$ xis why calc.go:3
+calc.go:3
+  session      01M5CRVYT5 · claude-code (live)
+  hunk         @@ -1,4 +1,7 @@ [behavior] · contributor ai
+  step         #7 Bash: sed -i 's/returns a + b/returns the sum of a and b/' calc.go (agent)
+  instruction  #1 "Read calc.go. Add a function Sub(a, b int) int that returns a - b ..."
+  evidence:
+    #2 Read calc.go
+    #6 Bash: go test ./... → PASS
+  explanation  LLM analysis off or not run
+```
+
+The step can be a `Bash` call. xis sees edits from shell commands, because it takes a snapshot after each mutating tool call.

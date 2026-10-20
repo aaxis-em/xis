@@ -76,3 +76,21 @@ func (s *Store) SuppressFlag(id, reason string) (model.Flag, error) {
 	}
 	return s.GetFlag(id)
 }
+
+func (s *Store) FlagCountsBySession(sessionID string) (map[string]int, error) {
+	rows, err := s.query(`SELECT severity, COUNT(DISTINCT fingerprint) FROM flags WHERE session_id = ? AND suppressed = 0 GROUP BY severity`, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var sev string
+		var n int
+		if err := rows.Scan(&sev, &n); err != nil {
+			return nil, err
+		}
+		out[sev] = n
+	}
+	return out, rows.Err()
+}

@@ -300,3 +300,30 @@ func StableID(t time.Time, parts ...string) string {
 	_ = id.SetEntropy(sum[:10])
 	return id.String()
 }
+
+type SnapshotMark struct {
+	Commit string
+	StepID string
+	Base   bool
+}
+
+// Trace is the output of an agent adapter: one session in canonical form,
+// before redaction and before edits are derived from the snapshots.
+type Trace struct {
+	Session   Session
+	Actors    []Actor
+	Steps     []Step
+	ToolCalls []ToolCall
+	Snapshots []SnapshotMark
+	Edits     []Edit
+	Warnings  []string
+}
+
+func (t *Trace) ToolCall(stepID string) *ToolCall {
+	for i := range t.ToolCalls {
+		if t.ToolCalls[i].StepID == stepID {
+			return &t.ToolCalls[i]
+		}
+	}
+	return nil
+}

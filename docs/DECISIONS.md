@@ -85,6 +85,7 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The first `git add -A` with an empty private index hashes every file.
 - **Choice:** Before the first snapshot of a session, xis copies the index of the user to the private index. It only reads the index of the user.
 - **Why:** Git can then use the file stat data of the user index. The first snapshot gets as fast as the others.
+- **Note:** The copy keeps the modification time of the user index. Git uses that time to find "racily clean" entries. A newer time made git miss a same-size edit in the same second. The end-to-end test found this bug.
 
 ## D15. Shadow commits that point to user commits
 
@@ -97,3 +98,45 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Section 6.4 asks for scrubbed real fixtures.
 - **Choice:** `testdata/fixtures/scrub.py` removes paths, user names, signatures and request metadata from transcripts and hook payloads.
 - **Why:** The script makes the scrub repeatable. It is a development tool only, not a runtime dependency.
+
+## D17. Session status tags
+
+- **Context:** Section 6.3 asks xis to lower the fidelity when the transcript is missing. The `fidelity` column allows only `live` and `imported`.
+- **Choice:** `sessions.status` is a comma-separated list: `active` or `ended`, and `no_transcript` when ingest had no transcript.
+- **Why:** The capture is still live, so `fidelity` stays `live`. The UI shows the tag, so the user sees that agent text is missing.
+
+## D18. Exit code of a successful Bash call
+
+- **Context:** Claude Code gives no exit code in `PostToolUse` for `Bash`. A non-zero exit causes `PostToolUseFailure`.
+- **Choice:** xis records exit code 0 for a `Bash` call with `PostToolUse` that was not interrupted. The test outcome rules then refuse `pass` if the command can hide the exit code.
+- **Why:** This is the observed behavior of Claude Code 2.1.304. Without it, no Claude Code test run could be `pass`.
+
+## D19. Sessions of a range
+
+- **Context:** Section 10 says that a change can cover the sessions "whose snapshot windows overlap the range".
+- **Choice:** A session belongs to a `--range` or `--pr` change if it started on the base commit or on a commit in the range. For `--staged`, a session belongs to the change if it started on `HEAD`.
+- **Why:** The rule is simple and deterministic. It uses only `sessions.base_commit`.
+
+## D20. Attribution commit
+
+- **Context:** Blame needs one commit that contains the target and the history of all sessions of the change.
+- **Choice:** xis makes a commit in the shadow repository with the target tree. Its parents are the final snapshots of the sessions. Git blame follows all parents.
+- **Why:** One blame run per file attributes lines to all sessions. No change to the user repository is necessary.
+
+## D21. Removed lines
+
+- **Context:** Section 10 suggests `git log -p --reverse` to find the step that removed a line.
+- **Choice:** xis uses the stored edit patches of the session in chain order. The first edit that removed a line with the same text gets the line.
+- **Why:** The edits are already in the database. The result is the same, and it needs no git call.
+
+## D22. Content hash input
+
+- **Context:** The Agent Trace specification (v0.1.0) shows `murmur3:` hashes in its examples, but it does not define the input. The reference code was not reachable.
+- **Choice:** 32-bit MurmurHash3, seed 0, over the added lines. Each line has collapsed whitespace and no leading or trailing space. xis joins the lines with `\n`. The output is `murmur3:` and 8 lowercase hex digits.
+- **Why:** This follows the examples of the specification. If the specification defines the input later, only `attribution.ContentHash` changes.
+
+## D23. Edit blobs
+
+- **Context:** `edits.before_blob` and `edits.after_blob` can hold a blob reference.
+- **Choice:** They hold the git blob IDs in the shadow repository. The `blobs` table stays empty in v1.
+- **Why:** The shadow repository has the content already. A copy in SQLite would duplicate it and would need its own redaction.

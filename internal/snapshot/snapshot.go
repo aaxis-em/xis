@@ -168,21 +168,36 @@ func (s *Shadow) seedIndex(dst string) {
 	if _, err := os.Stat(dst); err == nil {
 		return
 	}
-	src, err := os.Open(filepath.Join(s.Repo.GitDir, "index"))
-	if err != nil {
-		return
-	}
-	defer src.Close()
-	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o600)
-	if err != nil {
-		return
-	}
-	if _, err := io.Copy(out, src); err != nil {
-		out.Close()
+	if err := copyIndex(filepath.Join(s.Repo.GitDir, "index"), dst); err != nil {
 		_ = os.Remove(dst)
-		return
 	}
-	out.Close()
+}
+
+// copyIndex keeps the modification time of the source: git treats entries
+// as racily clean by comparing them to the index file's mtime, and a newer
+// mtime would hide same-size edits made in the same second.
+func copyIndex(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	fi, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Chtimes(dst, fi.ModTime(), fi.ModTime())
 }
 
 // WriteTree writes the tree of the working tree into the shadow object store. The
@@ -282,4 +297,19 @@ func (s *Shadow) Sessions() ([]string, error) {
 func (s *Shadow) GC() error {
 	_, err := s.Git().Run("gc", "--quiet", "--prune=now")
 	return err
+}
+
+// WriteIndexTree writes the tree of a copy of a user index, so git can not
+// touch the user's index file.
+func (s *Shadow) WriteIndexTree(userIndex string) (string, error) {
+	tmp := s.indexPath("staged-copy")
+	if err := copyIndex(userIndex, tmp); err != nil {
+		return "", err
+	}
+	defer os.Remove(tmp)
+	return s.Repo.Git().With(s.worktreeEnv(tmp)...).Run("write-tree")
+}
+
+func (s *Shadow) EmptyTree() (string, error) {
+	return s.Git().WithStdin(strings.NewReader("")).Run("mktree")
 }

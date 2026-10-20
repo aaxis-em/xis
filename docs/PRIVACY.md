@@ -22,3 +22,17 @@ By default the log contains only event names, session IDs and tool use IDs. It n
 ## Snapshots
 
 A snapshot contains the files of the working tree, without the ignored files and without the paths in `capture.exclude`. The default `capture.exclude` removes `.env*`, `*.pem`, `*.key`, `id_rsa*` and `*.p12` files.
+
+## Redaction
+
+Ingest removes secrets before it writes to the database. It removes secrets again before each LLM call. xis finds secrets in three ways:
+
+- The gitleaks rules (for example AWS, GitHub, Anthropic and OpenAI keys, and private key blocks).
+- An entropy check. It finds tokens of 20 characters or more with letters, digits and a Shannon entropy of 4.5 bits per character or more.
+- The regular expressions in `redact.patterns`.
+
+xis replaces each secret with `[REDACTED:<rule>:<hash>]`. The hash is the first 4 hex digits of the SHA-256 of the secret. Thus the same secret has the same token in all records of a session.
+
+## Spool files
+
+The spool file of a session holds the raw hook events until ingest. Ingest deletes the file after success. The database keeps a redacted copy of each hook event. xis truncates large tool responses in that copy to `capture.max_output_bytes`.
