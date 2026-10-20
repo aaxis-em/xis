@@ -21,6 +21,8 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 | `internal/testdetect` | Test files, test commands, test outcomes and manifest files. |
 | `internal/ingest` | The pipeline from the spool and the transcript to the database. |
 | `internal/attribution` | Changes, hunks, provenance, change types and review units. |
+| `internal/rules` | The rules engine, the 25 rules and the scope inference. |
+| `internal/tui` | The review UI (bubbletea). |
 | `internal/notes` | The signing key and (later) the git notes. |
 | `internal/model` | The canonical types. |
 | `internal/store` | The SQLite database and the migrations. |
@@ -265,3 +267,9 @@ Without an LLM, xis groups the hunks by change type, then by top-level directory
 ### Content hash
 
 The content hash of a hunk is the Agent Trace range hash: `murmur3:` and 8 hex digits. xis hashes the added lines with 32-bit MurmurHash3 (seed 0). Before the hash, xis collapses whitespace in each line and joins the lines with `\n`.
+
+## Review UI
+
+The review UI is a bubbletea program in `internal/tui`. The command `xis review` computes the change, runs the rules and gives the UI one `Data` value. The UI does not read the database. It calls back to store the status of a unit and to ask a question.
+
+The UI must stay fast with 2,000 hunks. It renders only the visible rows of each list. It highlights a hunk with chroma only when the hunk is on the screen, and it keeps the result in a cache.

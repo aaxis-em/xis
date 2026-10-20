@@ -181,3 +181,57 @@ $ xis precommit install
 The command keeps an existing hook. It renames the hook to `pre-commit.xis-orig`, and the xis hook runs it first. `xis precommit uninstall` removes the xis hook and restores the original hook. The command respects `core.hooksPath`.
 
 To commit once without the check, run `git commit --no-verify`.
+
+## `xis review`
+
+The command opens the review UI for a change. It takes the same change options as `xis flags`. The UI works without an LLM.
+
+```text
+┌ xis · fix-login-timeout · claude-code (live) · 42 steps · 7 files ──────── 1 high · 1 med ┐
+│ UNITS                │ calc.go  [behavior]  hunk 1/2      │ WHY                          │
+│ ▸ 1 Behavior: 2 files│ @@ -1,5 +1,6 @@                    │ Step 4 · Edit calc.go        │
+│   2 Tests  ⚑         │ +// Add returns the sum of a and b.│ Agent text near this edit:   │
+│   3 Docs: README.md  │ -    return a - b                  │  "The bug is in Add: ..."    │
+│                      │ +    return a + b                  │ Evidence: Read calc.go (s3)  │
+└──────────────────────┴────────────────────────────────────┴──────────────────────────────┘
+```
+
+The UI has three panes:
+
+| Pane | Content |
+| --- | --- |
+| UNITS | The review units in review order, their status (✔ understood, ? questioned) and their flags. Below them: the intent items, or the prompts if no LLM ran. |
+| DIFF | The current hunk with syntax colors, and the flags of the hunk. |
+| WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
+
+The layout depends on the terminal width:
+
+| Width | Layout |
+| --- | --- |
+| 140 columns or more | Three panes. |
+| 100 to 139 columns | Two panes: UNITS and DIFF. Press `tab` to show WHY in place of DIFF. |
+| Less than 100 columns | One pane. Press `tab` to go to the next pane. |
+
+The keys are:
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Move down or up in the focused pane. In DIFF, scroll a long hunk, then go to the next hunk. |
+| `tab` | Focus the next pane. |
+| `enter` | Expand: from UNITS to DIFF, from DIFF to WHY. |
+| `[` / `]` | Go to the previous or the next review unit. |
+| `g` / `G` | Go to the top or the bottom. |
+| `n` / `N` | Go to the next or the previous flag. |
+| `/` | Search the file paths and the hunks. |
+| `u` | Mark the unit as understood. Press again to clear. |
+| `x` | Mark the unit as questioned. Press again to clear. |
+| `t` | Open the timeline. Press `enter` on a step to see its full (redacted) content. |
+| `f` | Open the list of flags. Press `enter` to go to the hunk of a flag. |
+| `a` | Ask a question. This needs an LLM. |
+| `o` | Open the file at the hunk in `$VISUAL` or `$EDITOR`. |
+| `?` | Show the help. |
+| `q` | Quit, or go back from a view. |
+
+xis stores the status of each unit in the database. The status stays when you open the review again.
+
+Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact.

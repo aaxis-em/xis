@@ -170,3 +170,15 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The `flags.target_kind` values are `hunk`, `step`, `session` and `file`. `LARGE_CHANGE` is about the whole change.
 - **Choice:** The target is the first session of the change.
 - **Why:** No schema change is necessary. Reports show the flag at the change level.
+
+## D29. Terminal query of bubbletea
+
+- **Context:** bubbletea v1 asks the terminal for its background color in its package `init`. A terminal that does not answer makes every xis command wait up to 5 seconds. Such a terminal can also lose the first key presses.
+- **Choice:** xis accepts this behavior of bubbletea v1. Real terminals answer in a few milliseconds. termenv skips the query for `TERM=dumb`, `screen*` and `tmux*`.
+- **Why:** A fork of bubbletea is a large cost. bubbletea v2 removes the query. The hooks are not affected, because their stdout is not a terminal.
+
+## D30. Prompts in place of intent items
+
+- **Context:** Intent items come from the LLM (Section 12). Without an LLM, the UNITS pane has no intent items.
+- **Choice:** Without intent items, the pane shows the user prompts of the session under the title PROMPTS.
+- **Why:** The prompts are the deterministic source of the intent. The pane never shows an invented status.
