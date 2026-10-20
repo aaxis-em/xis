@@ -61,3 +61,39 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A hunk can contain lines that no captured step wrote.
 - **Choice:** The provenance row with step ID `unattributed` counts these lines.
 - **Why:** The contributor of a hunk (`ai`, `human`, `mixed` or `unknown`) needs this count. No new table is necessary.
+
+## D11. Snapshot commit message
+
+- **Context:** Section 7 asks for the message `xis step <step_id>`. The hook does not know the step ID, because ingest makes the step IDs later.
+- **Choice:** The message is `xis step <event> <tool_use_id>`. Ingest maps each snapshot to its step through the spool line.
+- **Why:** The hook must stay fast and must not need the database.
+
+## D12. Session lock in the hook
+
+- **Context:** Hooks of one session can run at the same time (for example in subagents). Two snapshots at the same time can break the chain.
+- **Choice:** The hook takes an exclusive `flock` lock for each session for the snapshot and the spool write. The wait is 8 seconds at most. After that, the hook continues without the lock and logs a warning.
+- **Why:** The order of the spool lines is then the order of the chain. The hook never blocks the agent for long.
+
+## D13. Git 2.31 or later
+
+- **Context:** xis uses `git rev-parse --path-format=absolute`.
+- **Choice:** xis needs git 2.31 or later. `xis doctor` checks the version.
+- **Why:** Absolute paths from git remove a class of path bugs with worktrees. Git 2.31 is from March 2021.
+
+## D14. Seed of the private index
+
+- **Context:** The first `git add -A` with an empty private index hashes every file.
+- **Choice:** Before the first snapshot of a session, xis copies the index of the user to the private index. It only reads the index of the user.
+- **Why:** Git can then use the file stat data of the user index. The first snapshot gets as fast as the others.
+
+## D15. Shadow commits that point to user commits
+
+- **Context:** The first snapshot has the `HEAD` commit of the user as parent. The commit object is in the user repository. If the user rewrites history and runs `git gc`, git can delete that commit.
+- **Choice:** xis accepts this risk. Attribution of a session whose root commit is missing fails with a clear error, and xis treats its hunks as unattributed.
+- **Why:** A copy of the user history in the shadow repository costs disk space for a rare case.
+
+## D16. Fixture scrub script
+
+- **Context:** Section 6.4 asks for scrubbed real fixtures.
+- **Choice:** `testdata/fixtures/scrub.py` removes paths, user names, signatures and request metadata from transcripts and hook payloads.
+- **Why:** The script makes the scrub repeatable. It is a development tool only, not a runtime dependency.

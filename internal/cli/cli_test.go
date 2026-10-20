@@ -56,3 +56,34 @@ func TestConfigSetGet(t *testing.T) {
 		t.Error("want error")
 	}
 }
+
+func TestHookCommandNeverWritesStdout(t *testing.T) {
+	isolate(t)
+	for _, in := range []string{"{bad", "", `{"session_id":"x","cwd":"/nonexistent","hook_event_name":"PostToolUse","tool_name":"Edit"}`} {
+		hookStdin = strings.NewReader(in)
+		out, err := run(t, "hook", "claude-code", "PostToolUse")
+		if err != nil || out != "" {
+			t.Errorf("in=%q out=%q err=%v", in, out, err)
+		}
+	}
+	hookStdin = strings.NewReader("{}")
+	if out, err := run(t, "hook", "claude-code"); err != nil || out != "" {
+		t.Errorf("no event: out=%q err=%v", out, err)
+	}
+	if out, err := run(t, "hook", "claude-code", "X", "--weird-flag"); err != nil || out != "" {
+		t.Errorf("odd flag: out=%q err=%v", out, err)
+	}
+}
+
+func TestDoctorRuns(t *testing.T) {
+	isolate(t)
+	if _, err := run(t, "init"); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := run(t, "doctor")
+	for _, w := range []string{"git", "database", "hooks", "spool", "llm"} {
+		if !strings.Contains(out, w) {
+			t.Errorf("doctor output misses %s:\n%s", w, out)
+		}
+	}
+}

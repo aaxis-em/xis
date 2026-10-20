@@ -18,6 +18,7 @@ linters:
         - (*os.File).Close
         - (*database/sql.Rows).Close
         - (*database/sql.DB).Close
+        - (*github.com/aaxis-em/xis/internal/store.Store).Close
         - (*database/sql.Tx).Rollback
         - os.Remove
         - os.RemoveAll
