@@ -3,6 +3,8 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aaxis-em/xis/internal/model"
@@ -93,4 +95,28 @@ func (s *Store) FlagCountsBySession(sessionID string) (map[string]int, error) {
 		out[sev] = n
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) FindFlag(idOrPrefix string) (model.Flag, error) {
+	rows, err := s.query(`SELECT id FROM flags WHERE id = ? OR id LIKE ? LIMIT 2`, idOrPrefix, strings.ToUpper(idOrPrefix)+"%")
+	if err != nil {
+		return model.Flag{}, err
+	}
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return model.Flag{}, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	switch {
+	case len(ids) == 0:
+		return model.Flag{}, ErrNotFound
+	case len(ids) > 1 && ids[0] != idOrPrefix:
+		return model.Flag{}, fmt.Errorf("flag ID prefix %q is ambiguous", idOrPrefix)
+	}
+	return s.GetFlag(ids[0])
 }

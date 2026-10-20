@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -295,5 +296,85 @@ func TestE2EAttribution(t *testing.T) {
 	out2, err := run(t, "ingest", "--session", s.session)
 	if err != nil || !strings.Contains(out2, "nothing") && !strings.Contains(out2, "ingested") {
 		t.Errorf("second ingest: %v %s", err, out2)
+	}
+}
+
+func TestE2EFlags(t *testing.T) {
+	s := newScenario(t)
+	runCalcScenario(s)
+
+	out, err := run(t, "--repo", s.repo, "--json", "flags")
+	var ec exitCode
+	if !errors.As(err, &ec) || int(ec) != 1 {
+		t.Fatalf("flags exit = %v, want 1\n%s", err, out)
+	}
+	var res struct {
+		Flags []struct {
+			RuleID   string `json:"RuleID"`
+			Location string `json:"location"`
+			ID       string `json:"ID"`
+		} `json:"flags"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	var got []string
+	ids := map[string]string{}
+	for _, f := range res.Flags {
+		got = append(got, f.RuleID+" @ "+f.Location)
+		ids[f.RuleID] = f.ID
+	}
+	sort.Strings(got)
+	want := []string{"TEST_EDIT_AFTER_FAILURE @ step 12", "TEST_FILE_MODIFIED @ calc_test.go"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("flags (-want +got):\n%s", diff)
+	}
+
+	if _, err := run(t, "flags", "suppress", ids["TEST_EDIT_AFTER_FAILURE"][:12]); err == nil {
+		t.Error("suppress without reason must fail")
+	}
+	if _, err := run(t, "flags", "suppress", ids["TEST_EDIT_AFTER_FAILURE"][:12], "--reason", "the test expectation was wrong"); err != nil {
+		t.Fatal(err)
+	}
+	out, err = run(t, "--repo", s.repo, "flags")
+	if err != nil {
+		t.Fatalf("flags after suppress: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "suppressed:") || !strings.Contains(out, "the test expectation was wrong") {
+		t.Errorf("suppressed flag not listed:\n%s", out)
+	}
+	if _, err := run(t, "--repo", s.repo, "flags", "--fail-on", "medium"); !errors.As(err, &ec) || int(ec) != 1 {
+		t.Errorf("--fail-on medium: %v", err)
+	}
+	if _, err := run(t, "--repo", s.repo, "flags", "--fail-on", "bogus"); err == nil {
+		t.Error("bad severity accepted")
+	} else if xe := new(Error); !errors.As(err, &xe) || xe.Code != 2 {
+		t.Errorf("bad severity exit: %v", err)
+	}
+
+	hooks := filepath.Join(s.repo, ".git", "hooks")
+	if err := os.WriteFile(filepath.Join(hooks, "pre-commit"), []byte("#!/bin/sh\necho mine\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := run(t, "--repo", s.repo, "precommit", "install"); err != nil || !strings.Contains(out, "runs the existing hook") {
+		t.Fatalf("install: %v %s", err, out)
+	}
+	if out, _ := run(t, "--repo", s.repo, "precommit", "install"); !strings.Contains(out, "no change") {
+		t.Errorf("second install: %s", out)
+	}
+	b, _ := os.ReadFile(filepath.Join(hooks, "pre-commit"))
+	if !strings.Contains(string(b), "flags --staged --fail-on high") {
+		t.Errorf("hook body:\n%s", b)
+	}
+	if out, err := run(t, "--repo", s.repo, "precommit", "uninstall"); err != nil || !strings.Contains(out, "restored") {
+		t.Fatalf("uninstall: %v %s", err, out)
+	}
+	b, _ = os.ReadFile(filepath.Join(hooks, "pre-commit"))
+	if string(b) != "#!/bin/sh\necho mine\n" {
+		t.Errorf("original hook not restored: %s", b)
+	}
+
+	if _, err := run(t, "--repo", s.repo, "flags", "--staged"); err != nil && !errors.As(err, &ec) {
+		t.Errorf("flags --staged: %v", err)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/gitx"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/redact"
 	"github.com/aaxis-em/xis/internal/snapshot"
 	"github.com/aaxis-em/xis/internal/store"
 	"github.com/aaxis-em/xis/internal/testdetect"
@@ -36,6 +37,7 @@ type Options struct {
 }
 
 type Engine struct {
+	Redact func(string) string
 	Cfg    config.Config
 	Store  *store.Store
 	Repo   snapshot.Repo
@@ -52,7 +54,11 @@ func NewEngine(p config.Paths, cfg config.Config, st *store.Store, repoDir strin
 	if err != nil {
 		return nil, err
 	}
-	return &Engine{Cfg: cfg, Store: st, Repo: r, Shadow: sh, Tests: testdetect.New(cfg.Capture.TestGlobs, cfg.Capture.TestCommands)}, nil
+	red, err := redact.New(cfg.Redact)
+	if err != nil {
+		return nil, err
+	}
+	return &Engine{Redact: red.String, Cfg: cfg, Store: st, Repo: r, Shadow: sh, Tests: testdetect.New(cfg.Capture.TestGlobs, cfg.Capture.TestCommands)}, nil
 }
 
 type Result struct {
@@ -67,6 +73,8 @@ type Result struct {
 	StepSession  map[string]string
 	ActorKind    map[string]string
 	LineSteps    map[string]map[int]string
+	// RawPatches holds the unredacted hunk patches in memory only, for the secret rule.
+	RawPatches map[string]string
 }
 
 var ErrNoSession = errors.New("no session found for this repository")
@@ -143,7 +151,7 @@ func (e *Engine) sessionsInRange(base, target string) ([]model.Session, error) {
 
 // Compute builds the change for opts, attributes its hunks and stores it.
 func (e *Engine) Compute(opts Options) (*Result, error) {
-	res := &Result{StepSession: map[string]string{}, ActorKind: map[string]string{}, LineSteps: map[string]map[int]string{}}
+	res := &Result{StepSession: map[string]string{}, ActorKind: map[string]string{}, LineSteps: map[string]map[int]string{}, RawPatches: map[string]string{}}
 	var base, targetRef, targetTree string
 	var err error
 	switch opts.Mode {
@@ -375,6 +383,10 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 			sort.Strings(ids)
 			for _, id := range ids {
 				res.Provenance = append(res.Provenance, model.HunkProvenance{HunkID: h.ID, StepID: id, Lines: counts[id]})
+			}
+			res.RawPatches[h.ID] = h.Patch
+			if e.Redact != nil {
+				h.Patch = e.Redact(h.Patch)
 			}
 			res.Hunks = append(res.Hunks, h)
 		}

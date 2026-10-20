@@ -140,3 +140,33 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `edits.before_blob` and `edits.after_blob` can hold a blob reference.
 - **Choice:** They hold the git blob IDs in the shadow repository. The `blobs` table stays empty in v1.
 - **Why:** The shadow repository has the content already. A copy in SQLite would duplicate it and would need its own redaction.
+
+## D24. Scope of the repository root
+
+- **Context:** Section 11 says that a file in a subdirectory of a scope directory is in scope. A read of a root file (for example `go.mod`) puts the root directory in scope.
+- **Choice:** The root directory puts only the other root files in scope, not the subdirectories.
+- **Why:** Otherwise one read of `README.md` turns off `OUT_OF_SCOPE` for the whole repository.
+
+## D25. `UNATTRIBUTED_CHANGE` needs a fully unattributed hunk
+
+- **Context:** A hunk can have lines from steps and unattributed lines.
+- **Choice:** The rule fires only if no captured step wrote any line of the hunk, as the specification says ("no provenance"). The contributor `mixed` shows partial cases.
+- **Why:** Uncommitted lines from before the session are common. A flag for each mixed hunk is noise.
+
+## D26. Chain of the git pre-commit hook
+
+- **Context:** `xis precommit install` must chain with an existing hook and never overwrite it.
+- **Choice:** xis renames the existing hook to `<name>.xis-orig`. The xis hook runs it first and stops if it fails. Uninstall restores it. An xis error (exit code 2) does not stop the commit.
+- **Why:** The existing hook keeps its content and its interpreter. A broken xis must not block all commits.
+
+## D27. Session argument of `xis flags`
+
+- **Context:** Section 14 shows `xis flags [change opts]`.
+- **Choice:** `xis flags` also takes an optional `SESSION` argument, as `xis review` does.
+- **Why:** The same change options for all commands are easier to learn.
+
+## D28. Target of `LARGE_CHANGE`
+
+- **Context:** The `flags.target_kind` values are `hunk`, `step`, `session` and `file`. `LARGE_CHANGE` is about the whole change.
+- **Choice:** The target is the first session of the change.
+- **Why:** No schema change is necessary. Reports show the flag at the change level.

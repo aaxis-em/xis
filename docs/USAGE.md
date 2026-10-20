@@ -128,3 +128,56 @@ calc.go:3
 ```
 
 The step can be a `Bash` call. xis sees edits from shell commands, because it takes a snapshot after each mutating tool call.
+
+## `xis flags`
+
+The command runs the rules on a change and prints the flags. The rules need no LLM. See [RULES.md](RULES.md) for each rule.
+
+```console
+$ xis flags
+SEVERITY  RULE                     LOCATION      MESSAGE                                                         ID
+high      TEST_EDIT_AFTER_FAILURE  step 12       The agent edited the test file calc_test.go after a failing...  01M5D2K9QZ
+medium    TEST_FILE_MODIFIED       calc_test.go  The agent changed the test file calc_test.go.                   01M5D2K9R4
+```
+
+Use the change options to select the change:
+
+| Option | Change |
+| --- | --- |
+| (none) | the latest session against the working tree |
+| `SESSION` | that session against the working tree |
+| `--staged` | `HEAD` against the index |
+| `--range A..B` | commit `A` against commit `B` |
+| `--pr` | the merge base with the default branch against `HEAD` |
+
+The exit code is 0, 1 or 2:
+
+| Exit code | Meaning |
+| --- | --- |
+| 0 | No unsuppressed flag at or above `--fail-on` (default `high`). |
+| 1 | One or more such flags. |
+| 2 | An xis error. |
+
+Use `--json` for machine output.
+
+## `xis flags suppress`
+
+The command accepts one flag with a reason. A unique prefix of the flag ID is enough. The suppression also applies to the same finding in later runs.
+
+```console
+$ xis flags suppress 01M5D2K9QZ --reason "The old test expected the bug."
+suppressed TEST_EDIT_AFTER_FAILURE 01M5D2K9QZ: The old test expected the bug.
+```
+
+## `xis precommit install`
+
+The command installs a git pre-commit hook. The hook runs `xis flags --staged --fail-on high`. A high-severity flag stops the commit. An xis error does not stop the commit.
+
+```console
+$ xis precommit install
+/work/repo/.git/hooks/pre-commit: installed (runs the existing hook pre-commit.xis-orig first)
+```
+
+The command keeps an existing hook. It renames the hook to `pre-commit.xis-orig`, and the xis hook runs it first. `xis precommit uninstall` removes the xis hook and restores the original hook. The command respects `core.hooksPath`.
+
+To commit once without the check, run `git commit --no-verify`.

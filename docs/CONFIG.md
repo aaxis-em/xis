@@ -31,3 +31,30 @@ Example `.xis.toml`:
 exclude = [".env*", "secrets/", "*.sqlite"]
 test_commands = ["^./scripts/check\\.sh"]
 ```
+
+## `[rules]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `disabled` | list of rule IDs | `[]` | Rules that do not run. |
+| `severity` | map of rule ID to severity | `{}` | Severity overrides: `info`, `low`, `medium` or `high`. |
+| `large_change_lines` | int (lines) | `500` | `LARGE_CHANGE` fires above this number of changed lines. |
+| `large_change_files` | int (files) | `20` | `LARGE_CHANGE` fires above this number of files. |
+| `retry_loop_runs` | int (runs) | `4` | `LONG_RETRY_LOOP` fires at this number of failed test runs in a row. |
+
+## `[scope]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `paths` | list of paths | `[]` | Paths that are always in scope for `OUT_OF_SCOPE`. A path is a directory prefix. |
+
+Example `.xis.toml`:
+
+```toml
+[rules]
+disabled = ["SENSITIVE_PATH"]
+severity = { DEPENDENCY_CHANGED = "high" }
+
+[scope]
+paths = ["internal/auth/", "docs/"]
+```
