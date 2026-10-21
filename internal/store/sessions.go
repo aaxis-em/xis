@@ -213,3 +213,9 @@ func (s *Store) ListHookEvents(sessionID string) ([]model.HookEvent, error) {
 	}
 	return out, rows.Err()
 }
+
+func (s *Store) HasPrompt(sessionID string) (bool, error) {
+	var n int
+	err := s.row(`SELECT COUNT(*) FROM steps WHERE session_id = ? AND kind = 'user_message'`, sessionID).Scan(&n)
+	return n > 0, err
+}

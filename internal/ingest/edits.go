@@ -12,8 +12,14 @@ import (
 	"github.com/aaxis-em/xis/internal/snapshot"
 )
 
-func (in *Ingester) deriveEdits(sh *snapshot.Shadow, tr *model.Trace) error {
+// deriveEdits diffs each snapshot with the one before it. The first snapshot
+// is diffed with preBase, the state before the session, so that a human edit
+// made before the first prompt gets its own step.
+func (in *Ingester) deriveEdits(sh *snapshot.Shadow, tr *model.Trace, preBase string) error {
 	marks := tr.Snapshots
+	if len(marks) > 0 && marks[0].StepID != "" && preBase != "" {
+		marks = append([]model.SnapshotMark{{Commit: preBase}}, marks...)
+	}
 	if len(marks) < 2 {
 		return nil
 	}
@@ -136,4 +142,28 @@ func linkReverts(edits []model.Edit) {
 			}
 		}
 	}
+}
+
+// preSessionBase is the commit to diff the first snapshot with: the final
+// snapshot of the previous session if the human worked on top of it, else
+// the HEAD at the session start. An earlier session that still ran when
+// this one started gives no base: its lines must not become human lines.
+func (in *Ingester) preSessionBase(tr *model.Trace) string {
+	sessions, err := in.Store.ListSessions(tr.Session.RepoID, 0)
+	if err != nil {
+		return ""
+	}
+	for _, s := range sessions {
+		if s.ID == tr.Session.ID || !s.StartedAt.Before(tr.Session.StartedAt) {
+			continue
+		}
+		if s.EndedAt.IsZero() || s.EndedAt.After(tr.Session.StartedAt) {
+			return ""
+		}
+		if s.BaseCommit == tr.Session.BaseCommit && s.FinalSnapshot != "" {
+			return s.FinalSnapshot
+		}
+		break
+	}
+	return tr.Session.BaseCommit
 }

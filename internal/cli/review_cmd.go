@@ -9,6 +9,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/termbg"
 	"github.com/aaxis-em/xis/internal/tui"
 )
 
@@ -118,7 +119,7 @@ The UI works without an LLM.`,
 			}
 			theme := a.Cfg.UI.Theme
 			m := tui.New(data, cb, !a.NoColor && theme != "none")
-			if theme == "light" {
+			if theme == "light" || theme == "auto" && !termbg.Dark() {
 				m.SetLightTheme()
 			}
 			if err := m.SetKeymap(a.Cfg.UI.Keymap); err != nil {

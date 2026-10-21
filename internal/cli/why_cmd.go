@@ -196,7 +196,7 @@ func explainLine(st *store.Store, res *attribution.Result, file string, line int
 			}
 		}
 	}
-	for _, t := range d.AgentTextNear(stepID, 3) {
+	for _, t := range d.AgentTextNear(stepID, file, 3) {
 		w.AgentText = append(w.AgentText, toWhyStep(t))
 	}
 	for _, ev := range d.EvidenceBefore(stepID, 5) {

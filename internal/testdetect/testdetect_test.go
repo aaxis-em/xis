@@ -44,6 +44,21 @@ func TestFramework(t *testing.T) {
 	}
 }
 
+func TestDetectSegment(t *testing.T) {
+	d := New(nil, []string{`^\./run-checks`})
+	for cmd, want := range map[string]string{
+		"go test ./...":                            "go test ./...",
+		"go vet ./... && go test -race ./...":      "go test -race ./...",
+		"python3 - <<'E'\nx = 1\nE\ngo test ./...": "go test ./...",
+		"cd web && CI=1 npm test 2>&1 | tail -5":   "npm test 2>&1",
+		"make lint; ./run-checks --all":            "./run-checks --all",
+	} {
+		if _, got, ok := d.Detect(cmd); !ok || got != want {
+			t.Errorf("Detect(%q) = %q, %v; want %q", cmd, got, ok, want)
+		}
+	}
+}
+
 func ip(n int) *int { return &n }
 
 func TestOutcome(t *testing.T) {

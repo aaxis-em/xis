@@ -80,7 +80,8 @@ type Result struct {
 var ErrNoSession = errors.New("no session found for this repository")
 
 // ResolveSession finds a session by xis ID, agent session ID or a prefix of
-// either. An empty id means the latest session of the repository.
+// either. An empty id means the latest session of the repository that has a
+// prompt; a session that was opened and closed without one is skipped.
 func ResolveSession(st *store.Store, repoID, id string) (model.Session, error) {
 	sessions, err := st.ListSessions(repoID, 0)
 	if err != nil {
@@ -89,6 +90,13 @@ func ResolveSession(st *store.Store, repoID, id string) (model.Session, error) {
 	if id == "" {
 		if len(sessions) == 0 {
 			return model.Session{}, ErrNoSession
+		}
+		for _, s := range sessions {
+			if ok, err := st.HasPrompt(s.ID); err != nil {
+				return model.Session{}, err
+			} else if ok {
+				return s, nil
+			}
 		}
 		return sessions[0], nil
 	}
@@ -234,6 +242,7 @@ func (e *Engine) Compute(opts Options) (*Result, error) {
 
 	var parents []string
 	snapStep := map[string]string{}
+	preSession := map[string]bool{}
 	for _, s := range res.Sessions {
 		if s.FinalSnapshot != "" && e.commitExists(s.FinalSnapshot) {
 			parents = append(parents, s.FinalSnapshot)
@@ -255,6 +264,9 @@ func (e *Engine) Compute(opts Options) (*Result, error) {
 			res.ActorKind[st.ID] = kinds[st.ActorID]
 			if st.Snapshot != "" {
 				snapStep[st.Snapshot] = st.ID
+			}
+			if st.Kind == model.StepHumanEdit && st.Snapshot != "" && st.Snapshot == s.BaseSnapshot {
+				preSession[st.ID] = true
 			}
 		}
 	}
@@ -285,7 +297,7 @@ func (e *Engine) Compute(opts Options) (*Result, error) {
 	if res.Files, err = gitx.ParsePatch(out); err != nil {
 		return nil, fmt.Errorf("parse diff: %w", err)
 	}
-	if err := e.buildHunks(res, snapStep); err != nil {
+	if err := e.buildHunks(res, snapStep, preSession); err != nil {
 		return nil, err
 	}
 	res.Units = GroupDeterministic(res.Change.ID, res.Hunks)
@@ -298,7 +310,10 @@ func (e *Engine) commitExists(c string) bool {
 	return err == nil
 }
 
-func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
+// buildHunks attributes each added line. A line that blame gives to the
+// edits before the session counts as human only if that edit added it; the
+// first snapshot also holds uncommitted lines of earlier sessions.
+func (e *Engine) buildHunks(res *Result, snapStep map[string]string, preSession map[string]bool) error {
 	edits := map[string][]editRef{}
 	imported := map[string][]editRef{}
 	live := map[string][]editRef{}
@@ -377,6 +392,9 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 						}
 						if ok {
 							step = s
+						}
+						if preSession[step] && addedBy(edits[fp.Path], l.Text, map[string]string{step: ""}) != step {
+							step = model.Unattributed
 						}
 					} else if s := lastEditStep(live[fp.Path], res.StepSession); s != "" {
 						step = s

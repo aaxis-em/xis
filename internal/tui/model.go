@@ -66,15 +66,16 @@ type Model struct {
 	citeSel   int
 	asking    bool
 
-	status string
-	keys   map[string]string
-	Editor func(file string, line int) *exec.Cmd
+	status  string
+	keys    map[string]string
+	Editor  func(file string, line int) *exec.Cmd
+	mdStyle string
 }
 
 func New(d *Data, cb Callbacks, color bool) *Model {
 	in := textinput.New()
 	in.CharLimit = 500
-	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in}
+	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, mdStyle: "dark"}
 	m.Editor = defaultEditor
 	return m
 }
@@ -321,7 +322,7 @@ func (m *Model) setAnswer(text string) {
 	}
 	rendered := text
 	if m.color {
-		if r, err := glamour.NewTermRenderer(glamour.WithAutoStyle(), glamour.WithWordWrap(max(m.width-4, 20))); err == nil {
+		if r, err := glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle), glamour.WithWordWrap(max(m.width-4, 20))); err == nil {
 			if out, err := r.Render(text); err == nil {
 				rendered = out
 			}

@@ -102,19 +102,32 @@ func IsSnapshotFile(file string) bool {
 }
 
 func (d *Detector) Framework(command string) (string, bool) {
-	for _, seg := range segments(command) {
+	fw, _, ok := d.Detect(command)
+	return fw, ok
+}
+
+// Detect also returns the part of a compound command that runs the tests,
+// for example "go test ./..." from "go vet ./... && go test ./...".
+func (d *Detector) Detect(command string) (framework, segment string, ok bool) {
+	segs := segments(command)
+	for _, seg := range segs {
 		for _, c := range defaultCommands {
 			if c.re.MatchString(seg) {
-				return c.framework, true
+				return c.framework, seg, true
 			}
 		}
 	}
 	for _, re := range d.commands {
+		for _, seg := range segs {
+			if re.MatchString(seg) {
+				return "custom", seg, true
+			}
+		}
 		if re.MatchString(command) {
-			return "custom", true
+			return "custom", command, true
 		}
 	}
-	return "", false
+	return "", "", false
 }
 
 var updateSnapshotsRe = regexp.MustCompile(`(^|\s)(-u|--update-snapshots?|--updateSnapshot|--snapshot-update)\b`)

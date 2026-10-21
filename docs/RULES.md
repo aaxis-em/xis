@@ -203,7 +203,7 @@ flowchart LR
 
 **Severity:** `medium`. **Target:** file.
 
-**What it detects:** A dependency manifest or a lock file changed. Examples are `go.mod`, `go.sum`, `package.json`, lock files, `requirements*.txt`, `pyproject.toml`, `Cargo.toml`, `Gemfile`, `pom.xml` and `build.gradle*`.
+**What it detects:** A dependency manifest or a lock file changed. Examples are `go.mod`, `go.sum`, `package.json`, lock files, `requirements*.txt`, `pyproject.toml`, `Cargo.toml`, `Gemfile`, `pom.xml` and `build.gradle*`. Each change to a lock file fires the rule. A change to a manifest fires the rule only if a changed line can name a dependency. Blank lines, comments, brackets, section headers and keys such as `module`, `go`, `name` and `version` cannot. Thus a new `go.mod` without `require` lines does not fire the rule.
 
 **Why it matters:** A new dependency adds code that you did not review. It can add a supply-chain risk.
 

@@ -113,7 +113,7 @@ func TestLiveSessionGolden(t *testing.T) {
 	for _, s := range tr.Steps {
 		kinds[s.Kind]++
 	}
-	if kinds[model.StepUserMessage] != 1 || kinds[model.StepToolCall] != 6 || kinds[model.StepHumanEdit] != 1 {
+	if kinds[model.StepUserMessage] != 1 || kinds[model.StepToolCall] != 6 || kinds[model.StepHumanEdit] != 2 {
 		t.Errorf("kinds = %v", kinds)
 	}
 	if len(tr.Snapshots) != 6 || !tr.Snapshots[0].Base {

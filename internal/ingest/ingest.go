@@ -169,7 +169,7 @@ func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Re
 		if err != nil {
 			return Result{}, fmt.Errorf("open shadow repository: %w", err)
 		}
-		if err := in.deriveEdits(sh, &tr); err != nil {
+		if err := in.deriveEdits(sh, &tr, in.preSessionBase(&tr)); err != nil {
 			tr.Warnings = append(tr.Warnings, "edits: "+err.Error())
 		}
 	}
@@ -350,13 +350,13 @@ func (in *Ingester) detectTests(tr *model.Trace) []model.TestRun {
 			continue
 		}
 		cmd := adapters.Command(tc.Input)
-		fw, ok := in.tests.Framework(cmd)
+		fw, seg, ok := in.tests.Detect(cmd)
 		if !ok {
 			continue
 		}
 		tc.Category = model.CatTest
 		sum := testdetect.Outcome(cmd, tc.ExitCode, tc.Output)
-		out = append(out, model.TestRun{StepID: tc.StepID, Command: cmd, Framework: fw, Passed: sum.Passed, Failed: sum.Failed, Skipped: sum.Skipped, Outcome: sum.Outcome})
+		out = append(out, model.TestRun{StepID: tc.StepID, Command: seg, Framework: fw, Passed: sum.Passed, Failed: sum.Failed, Skipped: sum.Skipped, Outcome: sum.Outcome})
 	}
 	return out
 }

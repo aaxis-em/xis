@@ -174,7 +174,7 @@ This log records each decision that the specification does not settle. Each entr
 ## D29. Terminal query of bubbletea
 
 - **Context:** bubbletea v1 asks the terminal for its background color in its package `init`. A terminal that does not answer makes every xis command wait up to 5 seconds. Such a terminal can also lose the first key presses.
-- **Choice:** xis accepts this behavior of bubbletea v1. Real terminals answer in a few milliseconds. termenv skips the query for `TERM=dumb`, `screen*` and `tmux*`.
+- **Choice:** Replaced by D60. xis first accepted this behavior of bubbletea v1. Real terminals answer in a few milliseconds. termenv skips the query for `TERM=dumb`, `screen*` and `tmux*`.
 - **Why:** A fork of bubbletea is a large cost. bubbletea v2 removes the query. The hooks are not affected, because their stdout is not a terminal.
 
 ## D30. Prompts in place of intent items
@@ -342,7 +342,7 @@ This log records each decision that the specification does not settle. Each entr
 ## D57. Edits before the session start
 
 - **Context:** A user edit that is in the working tree before the first prompt is not between two turns. Section 9.1 makes a `human_edit` step only between turns.
-- **Choice:** xis does not attribute such lines. They are unattributed, and `UNATTRIBUTED_CHANGE` reports them.
+- **Choice:** Replaced by D61. The first choice was to not attribute such lines. They were unattributed, and `UNATTRIBUTED_CHANGE` reported them.
 - **Why:** Before the first snapshot, xis did not observe the edit. Another tool or an earlier agent could have made it. Section 9.3 also marks hunks without proof as unattributed and never guesses.
 
 ## D58. Line of a hunk flag
@@ -350,3 +350,39 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A hunk flag showed the first line of the hunk. In a real session, the location of a `t.Skip` call was 3 lines too early.
 - **Choice:** A flag has a line. `TEST_SKIPPED`, `LINT_SUPPRESSED` and `SECRET_IN_CHANGE` set it to the added line that matches. Other hunk flags keep line 0 and show the first line of the hunk. Migration `0003` adds the column. The ID and the fingerprint of a flag do not include the line.
 - **Why:** The reviewer goes to the location directly. A suppression must not stop to match when lines above the flag move.
+
+## D59. Default session
+
+- **Context:** A Claude Code session that a user opens and closes again has no prompt and no steps. It was the latest session, so `xis review` showed "none recorded" under PROMPTS. Its flags were the uncommitted work of other sessions.
+- **Choice:** Without a session argument, xis selects the latest session that has a prompt. If no session has a prompt, xis selects the latest session.
+- **Why:** The user wants to review the last real work. An empty session has nothing to review.
+
+## D60. No terminal query for the background color
+
+- **Context:** The package `init` of bubbletea v1 asks the terminal for its background color. A terminal that does not answer made every xis command wait 5 seconds, `xis version` too. The review UI did not use the answer: it is dark unless `ui.theme = "light"`.
+- **Choice:** The package `internal/termbg` sets the background before the `init` of bubbletea. Since Go 1.21, Go initializes the ready packages in import path order, and `github.com/aaxis-em/...` comes before `github.com/charmbracelet/...`. `auto` reads `COLORFGBG`, else it uses `dark`. The Markdown renderer uses a fixed style, not a terminal query.
+- **Why:** The test used a terminal that does not answer. `xis version` went from 5.05 seconds to 0.04 seconds. The first frame of `xis review` went from 5.18 to 0.11 seconds.
+
+## D61. Edits before the session start (human)
+
+- **Context:** D57 left a user edit from before the first prompt unattributed. The user asked to credit it to the human. The risk is the first snapshot: it also holds the uncommitted lines of an earlier agent session.
+- **Choice:** The first snapshot is the `human_edit` step "Files changed before the session started". Its edits come from a diff with the final snapshot of the previous session if `HEAD` did not change since then, else with `HEAD`. If the previous session ran when this session started, the step gets no edits. Blame can give a line to this step. The line stays human only if the edit of the step added a line with the same text.
+- **Why:** Lines of an earlier agent session must never become human lines. The content check finds them: they are not in the diff after the previous session. The test `TestE2EEditsBeforeTheSession` covers both cases.
+
+## D62. Command of a test run
+
+- **Context:** An agent often runs tests in a compound command, for example a heredoc script followed by `go test`. The report showed the start of the full command.
+- **Choice:** A test run keeps the part of the command that matched the test command, for example `go test -race ./...`. The exit code check still reads the full command.
+- **Why:** The reviewer wants to know which tests ran.
+
+## D63. Metadata lines in a manifest
+
+- **Context:** A new `go.mod` with only `module` and `go` lines fired `DEPENDENCY_CHANGED` in a real session.
+- **Choice:** For a manifest, the rule fires only if a changed line can name a dependency. Each change to a lock file still fires it.
+- **Why:** The rule is about new code from outside. A module name or a language version adds none.
+
+## D64. Agent text of another file
+
+- **Context:** In a real session, `xis why` on a `store.go` line quoted an agent note about `main.go` as "agent text near this edit".
+- **Choice:** xis leaves out agent text that names another file of the session and not the file of the line. File names match as whole words. Text that names no file stays.
+- **Why:** Text about another file misleads the reviewer. Most agent text names no file, so the filter removes little.

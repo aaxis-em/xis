@@ -215,9 +215,13 @@ func init() {
 		def(id, sev, func(r *rule, c *Context) []model.Flag {
 			var out []model.Flag
 			for _, f := range c.Files {
-				if testdetect.Classify(f.Path) == kind {
-					out = append(out, r.fileFlag(c, f.Path, fmt.Sprintf("The %s %s changed.", what, f.Path)))
+				if testdetect.Classify(f.Path) != kind {
+					continue
 				}
+				if kind == testdetect.Dependency && !testdetect.IsLockfile(f.Path) && onlyMetadata(c, f.Path) {
+					continue
+				}
+				out = append(out, r.fileFlag(c, f.Path, fmt.Sprintf("The %s %s changed.", what, f.Path)))
 			}
 			return out
 		})
@@ -545,4 +549,22 @@ func stem(p string) string {
 		b = b[:i]
 	}
 	return strings.ToLower(b)
+}
+
+// manifestMetadataRe matches manifest lines that name no dependency: blank
+// lines, comments, brackets, section headers and keys such as module, go,
+// name and version.
+var manifestMetadataRe = regexp.MustCompile(`^\s*($|#|//|[\[\]{}],?$|\[[^\]]*\]$|"?(module|go|toolchain|name|version|description|edition|authors|license|readme|homepage|repository|keywords|private|type)"?\s*[=:\s]\s*\S)`)
+
+func onlyMetadata(c *Context, path string) bool {
+	n := 0
+	for _, h := range c.HunksOf(path) {
+		for _, l := range append(c.Lines(h, '+'), c.Lines(h, '-')...) {
+			if !manifestMetadataRe.MatchString(l) {
+				return false
+			}
+			n++
+		}
+	}
+	return n > 0
 }

@@ -607,3 +607,71 @@ func TestE2ECopiedLinesKeepTheirStep(t *testing.T) {
 		t.Errorf("provenance (-want +got):\n%s", diff)
 	}
 }
+
+func TestE2EEditsBeforeTheSession(t *testing.T) {
+	s := newScenario(t)
+	s.write("README.md", "# calc\n\nHuman notes.\n")
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("Fix Add.")
+	s.tool("t1-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "calc.go")}, func() { s.write("calc.go", calcFixed) }, "", 0)
+	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	s.hook("SessionEnd", map[string]any{"reason": "other"})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+
+	s.session, s.transcript = "e2e-session-2", filepath.Join(t.TempDir(), "transcript2.jsonl")
+	s.write("util.go", "package calc\n\nconst Version = \"2.0\"\n")
+	time.Sleep(10 * time.Millisecond)
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("Add Sub.")
+	s.tool("t2-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "sub.go")}, func() { s.write("sub.go", "package calc\n\nfunc Sub(a, b int) int { return a - b }\n") }, "", 0)
+	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	s.hook("SessionEnd", map[string]any{"reason": "other"})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+
+	st := openTestStore(t)
+	app := &App{Paths: config.DefaultPaths(), Cfg: config.Default(), RepoDir: s.repo}
+	for _, tc := range []struct {
+		session string
+		want    map[string][]string
+	}{
+		{"e2e-session-1", map[string][]string{
+			"README.md": {"human_edit:2"}, "calc.go": {"t1-edit:3"},
+			"util.go": {"unattributed:2"}, "sub.go": {"unattributed:3"},
+		}},
+		{"e2e-session-2", map[string][]string{
+			"README.md": {"unattributed:2"}, "calc.go": {"unattributed:3"},
+			"util.go": {"human_edit:2"}, "sub.go": {"t2-edit:3"},
+		}},
+	} {
+		_, res, err := app.computeChange(st, attribution.Options{Mode: attribution.ModeSession, SessionID: tc.session})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if diff := cmp.Diff(tc.want, provenanceByFile(t, st, res)); diff != "" {
+			t.Errorf("%s provenance (-want +got):\n%s", tc.session, diff)
+		}
+	}
+}
+
+func TestE2EDefaultSessionSkipsSessionsWithoutPrompts(t *testing.T) {
+	s := newScenario(t)
+	runCalcScenario(s)
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+	s.session, s.transcript = "e2e-empty", filepath.Join(t.TempDir(), "empty.jsonl")
+	time.Sleep(10 * time.Millisecond)
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.hook("SessionEnd", map[string]any{"reason": "other"})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+	out, err := run(t, "timeline")
+	if err != nil || !strings.Contains(out, "Fix the Add function") {
+		t.Errorf("default session is not the one with prompts:\n%s %v", out, err)
+	}
+}

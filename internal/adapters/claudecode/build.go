@@ -243,7 +243,12 @@ func (b *builder) hooks() []mark {
 		switch ev.Event {
 		case EvSessionStart:
 			if ev.Snapshot != "" {
-				marks = append(marks, mark{commit: ev.Snapshot, base: true})
+				text := "Files changed outside the agent"
+				if p.Source == "" || p.Source == "startup" {
+					text = "Files changed before the session started"
+				}
+				he := b.add(&item{ts: ev.Ts, key: "start:" + ev.Key, kind: model.StepHumanEdit, text: text, actor: actorHuman, snapshot: ev.Snapshot})
+				marks = append(marks, mark{commit: ev.Snapshot, base: true, it: he})
 			}
 		case EvUserPromptSubmit:
 			ph := &promptHook{ev: ev, p: p}

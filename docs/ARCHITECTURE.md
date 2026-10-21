@@ -231,8 +231,9 @@ The steps of the pipeline are:
 3. Ingest removes secrets from all text, tool inputs, tool outputs and patches. It truncates tool output to `capture.max_output_bytes`.
 4. For each pair of consecutive snapshots, ingest runs `git diff` in the shadow repository. The result is the edits of the step that made the later snapshot.
 5. A snapshot at `UserPromptSubmit` that differs from the snapshot before it becomes a `human_edit` step. The user changed files between turns.
-6. Ingest finds the shell tool calls that ran tests and parses their outcome.
-7. Ingest writes all records in one transaction. Then it deletes the spool file.
+6. The first snapshot becomes the `human_edit` step "Files changed before the session started". Ingest compares it with the final snapshot of the previous session if `HEAD` did not change, else with `HEAD`. If the previous session ran when this session started, the step gets no edits.
+7. Ingest finds the shell tool calls that ran tests and parses their outcome. For a compound command, the test run keeps only the part that runs the tests, for example `go test ./...`.
+8. Ingest writes all records in one transaction. Then it deletes the spool file.
 
 Ingest makes all IDs from stable input. A second ingest of a session replaces its derived rows and keeps the same IDs.
 
@@ -257,7 +258,7 @@ A change has a base and a target. The table shows the change options.
 
 | Option | Base | Target | Sessions |
 | --- | --- | --- | --- |
-| (default) | `HEAD` at session start | the working tree | the given session or the latest session |
+| (default) | `HEAD` at session start | the working tree | the given session or the latest session with a prompt |
 | `--staged` | `HEAD` | the index | the sessions that started on `HEAD` |
 | `--range A..B` | `A` | `B` | the sessions that started on `A` or on a commit in `A..B` |
 | `--pr` | the merge base with the default branch | `HEAD` | as `--range` |
@@ -280,8 +281,9 @@ flowchart RL
 Each snapshot commit belongs to one step. Blame gives the commit that added each line. The commit gives the step. These rules apply:
 
 - A line that blame gives to the attribution commit changed outside all captured steps. xis counts it as `unattributed`.
-- A line that blame gives to the first snapshot or to the user history is not from a captured step. xis counts it as `unattributed`.
+- A line that blame gives to the user history is not from a captured step. xis counts it as `unattributed`.
 - A line from a `human_edit` step has the human as contributor.
+- A line that blame gives to the first snapshot has the human as contributor only if the edit before the session added it. The first snapshot can also hold uncommitted lines of an earlier session. xis counts those as `unattributed`.
 - For a removed line, xis finds the first edit of the session that removed a line with the same text.
 - A binary file or a file larger than `capture.max_file_bytes` gets no line attribution. xis gives the whole hunk to the last step that edited the file.
 

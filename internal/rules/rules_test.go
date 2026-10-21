@@ -419,3 +419,27 @@ func TestHunkFlagsPointToTheLine(t *testing.T) {
 		}
 	}
 }
+
+func TestDependencyChangedNeedsDependencyLines(t *testing.T) {
+	for _, tc := range []struct {
+		path, body string
+		want       bool
+	}{
+		{"go.mod", "+module linkr\n+\n+go 1.26", false},
+		{"go.mod", "-go 1.25\n+go 1.26", false},
+		{"go.mod", "+module linkr\n+\n+require github.com/x/y v1.2.3", true},
+		{"go.mod", "+\tgithub.com/x/y v1.2.3 // indirect", true},
+		{"package.json", "+{\n+  \"name\": \"web\",\n+  \"version\": \"0.1.0\",\n+  \"private\": true\n+}", false},
+		{"package.json", "+    \"react\": \"^18.3.1\",", true},
+		{"Cargo.toml", "+[package]\n+name = \"x\"\n+version = \"0.1.0\"\n+edition = \"2021\"\n+\n+[dependencies]", false},
+		{"Cargo.toml", "+serde = \"1\"", true},
+		{"requirements.txt", "+requests==2.32.0", true},
+		{"go.sum", "+\n", true},
+	} {
+		b := newTB(t)
+		b.hunk(tc.path, tc.body, b.edit(tc.path, ""))
+		if got := len(b.run("DEPENDENCY_CHANGED")) == 1; got != tc.want {
+			t.Errorf("%s %q: flagged %v, want %v", tc.path, tc.body, got, tc.want)
+		}
+	}
+}

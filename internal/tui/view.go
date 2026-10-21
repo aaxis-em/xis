@@ -260,7 +260,7 @@ func (m *Model) whyPane(w, h int) []string {
 			}
 			add(fmt.Sprintf("Agent says (%s):", badge))
 			add(m.st.quote.Render(fmt.Sprintf("  %q", r.AgentClaim)))
-		} else if near := sd.AgentTextNear(first.ID, 3); len(near) > 0 {
+		} else if near := sd.AgentTextNear(first.ID, hk.FilePath, 3); len(near) > 0 {
 			add("Agent text near this edit:")
 			for _, t := range near {
 				add(m.st.quote.Render(fmt.Sprintf("  %q", oneLine(t.Text, 240))))

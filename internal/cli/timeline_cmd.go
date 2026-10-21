@@ -128,7 +128,10 @@ func printTimeline(a *App, tl timelineData) {
 		return "\x1b[2m" + t + "\x1b[0m"
 	}
 	for _, t := range tl.Steps {
-		off := t.Time.Sub(s.StartedAt).Round(time.Second)
+		off := "+0s"
+		if d := t.Time.Sub(s.StartedAt).Round(time.Second); d > 0 {
+			off = "+" + fmtDuration(d)
+		}
 		indent := strings.Repeat("  ", t.Depth)
 		label := t.Kind
 		if t.Tool != "" {
@@ -141,7 +144,7 @@ func printTimeline(a *App, tl timelineData) {
 		if t.Test != "" {
 			status += " [test " + t.Test + "]"
 		}
-		line := fmt.Sprintf("%4d %7s %s%-9s %s%s", t.Seq, "+"+fmtDuration(off), indent, label, oneLine(t.Text, 90), status)
+		line := fmt.Sprintf("%4d %7s %s%-9s %s%s", t.Seq, off, indent, label, oneLine(t.Text, 90), status)
 		if t.Depth > 0 {
 			line += "  (" + t.Actor + ")"
 		}

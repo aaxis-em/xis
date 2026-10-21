@@ -1,6 +1,11 @@
 package store
 
-import "github.com/aaxis-em/xis/internal/model"
+import (
+	"path"
+	"strings"
+
+	"github.com/aaxis-em/xis/internal/model"
+)
 
 type SessionData struct {
 	Session   model.Session
@@ -102,23 +107,68 @@ func (d *SessionData) InstructionFor(stepID string) (model.Step, bool) {
 
 // AgentTextNear returns assistant and reasoning steps of the same actor among
 // the n steps before stepID.
-func (d *SessionData) AgentTextNear(stepID string, n int) []model.Step {
+// AgentTextNear returns the agent text in the n steps before stepID. Text
+// that names another file of the session, and not file, is about something
+// else and is left out.
+func (d *SessionData) AgentTextNear(stepID, file string, n int) []model.Step {
 	i, ok := d.StepIndex[stepID]
 	if !ok {
 		return nil
 	}
 	actor := d.Steps[i].ActorID
+	var others []string
+	for _, e := range d.Edits {
+		if e.FilePath != file {
+			others = append(others, e.FilePath)
+		}
+	}
 	var out []model.Step
 	for j := i - 1; j >= 0 && j >= i-n; j-- {
 		st := d.Steps[j]
 		if st.Kind == model.StepUserMessage {
 			break
 		}
-		if st.ActorID == actor && (st.Kind == model.StepAssistantMessage || st.Kind == model.StepReasoning || st.Kind == model.StepPlan) {
-			out = append([]model.Step{st}, out...)
+		if st.ActorID != actor || (st.Kind != model.StepAssistantMessage && st.Kind != model.StepReasoning && st.Kind != model.StepPlan) {
+			continue
 		}
+		if file != "" && !mentions(st.Text, file) && mentionsAny(st.Text, others) {
+			continue
+		}
+		out = append([]model.Step{st}, out...)
 	}
 	return out
+}
+
+// mentions reports whether text names file by its path or by its base name
+// as a whole word, so "a.go" does not match "data.go".
+func mentions(text, file string) bool {
+	return hasWord(text, file) || hasWord(text, path.Base(file))
+}
+
+func hasWord(text, w string) bool {
+	isWord := func(c byte) bool {
+		return c == '_' || c == '-' || c == '/' || c >= '0' && c <= '9' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+	}
+	for off := 0; ; {
+		i := strings.Index(text[off:], w)
+		if i < 0 {
+			return false
+		}
+		start, end := off+i, off+i+len(w)
+		if (start == 0 || !isWord(text[start-1]) && text[start-1] != '.') && (end == len(text) || !isWord(text[end])) {
+			return true
+		}
+		off = start + 1
+	}
+}
+
+func mentionsAny(text string, files []string) bool {
+	for _, f := range files {
+		if mentions(text, f) {
+			return true
+		}
+	}
+	return false
 }
 
 // EvidenceBefore returns read, search and test tool calls before stepID.

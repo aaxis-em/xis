@@ -24,7 +24,7 @@ Most commands work on a change. These options select the change:
 
 | Option | Base | Target |
 | --- | --- | --- |
-| (none) | `HEAD` at the start of the latest session | the working tree |
+| (none) | `HEAD` at the start of the latest session with a prompt | the working tree |
 | `SESSION` | `HEAD` at the start of that session | the working tree |
 | `--staged` | `HEAD` | the index |
 | `--range A..B` | commit `A` | commit `B` |
@@ -174,7 +174,7 @@ Use the change options to select the change:
 
 | Option | Change |
 | --- | --- |
-| (none) | the latest session against the working tree |
+| (none) | the latest session with a prompt against the working tree |
 | `SESSION` | that session against the working tree |
 | `--staged` | `HEAD` against the index |
 | `--range A..B` | commit `A` against commit `B` |
@@ -264,7 +264,9 @@ The keys are:
 
 xis stores the status of each unit in the database. The status stays when you open the review again.
 
-Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact.
+Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact. xis leaves out text that names a different file of the session and not the file of the hunk.
+
+A session that has no prompt, for example Claude Code opened and closed again, is never the default session. Give its ID to open it.
 
 ## `xis analyze`
 
