@@ -282,6 +282,9 @@ type Blob struct {
 
 func NewID() string { return ulid.Make().String() }
 
+// StableIDPrefix is the time part of a StableID made with a zero time.
+const StableIDPrefix = "0000000000"
+
 // StableID is deterministic so re-ingesting a session keeps the IDs that LLM output and review state point to.
 func StableID(t time.Time, parts ...string) string {
 	h := sha256.New()

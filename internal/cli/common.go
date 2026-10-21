@@ -10,6 +10,7 @@ import (
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/gitx"
 	"github.com/aaxis-em/xis/internal/ingest"
+	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/snapshot"
 	"github.com/aaxis-em/xis/internal/store"
 )
@@ -72,7 +73,10 @@ func (a *App) computeChange(st *store.Store, opts attribution.Options) (*attribu
 	return e, res, nil
 }
 
+// shortID drops the zero time prefix of a model.StableID, which would make
+// every short form the same.
 func shortID(id string) string {
+	id = strings.TrimPrefix(id, model.StableIDPrefix)
 	if len(id) > 10 {
 		return id[:10]
 	}

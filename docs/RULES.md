@@ -279,7 +279,7 @@ flowchart LR
 
 **Why it matters:** A secret in a commit is hard to remove from history.
 
-**Known false positives:** A test fixture with a fake key that looks real fires this rule.
+**Known false positives:** A test fixture with a fake key that looks real fires this rule. The entropy check ignores alphabet strings such as `abcdefghijklmnopqrstuvwxyz0123456789`.
 
 **Tune:** Suppress one flag with `xis flags suppress`. Turn off the rule with `rules.disabled = ["SECRET_IN_CHANGE"]`.
 
@@ -335,7 +335,7 @@ flowchart LR
 
 **Severity:** `low`. **Target:** file.
 
-**What it detects:** In one session, the agent added, removed and then added again the same lines of a file.
+**What it detects:** In one session, the agent added, removed and then added again the same lines of a file. A line that one edit removes and adds again is a moved line, and it does not count.
 
 **Why it matters:** This pattern shows uncertainty. The final code needs a careful look.
 
@@ -398,15 +398,21 @@ flowchart LR
 
 ## Scope inference
 
-The `OUT_OF_SCOPE` rule needs the scope of the session. xis infers it with fixed rules. The scope is the union of these sets:
+The `OUT_OF_SCOPE` rule needs the scope of each turn. A turn starts at a user prompt and ends before the next one. xis infers the scope with fixed rules. The scope of a turn is the union of these sets:
 
-- The paths, file names and identifiers in the user prompts. An identifier is a CamelCase, camelCase or snake_case word, or a word in backticks.
-- The directories of the files that the agent read or searched before its first edit.
+- The paths, file names and identifiers in the user prompts of this turn and of the turns before it. An identifier is a CamelCase, camelCase or snake_case word, or a word in backticks.
+- The directories of the files that the agent read or searched before its first edit in the turn. Paths in the shell commands of the agent before that edit also count, for example `cat store/store.go`.
 - The paths in `scope.paths` of `.xis.toml`.
+- The changed files whose added lines use an identifier from the prompts. xis ignores case and underscores, so `expires_at` matches `ExpiresAt`.
 - The test files that mirror an in-scope file, for example `calc_test.go` for `calc.go`.
 
-A changed file is in scope if it is a scope file. It is also in scope if it is in a scope directory or in a subdirectory of it. The repository root is special: a read of a root file puts only the other root files in scope, not the subdirectories.
+xis compares each agent line with the scope of the turn that wrote it. A changed file is in scope if it is a scope file. It is also in scope if it is in a scope directory or in a subdirectory of it. The repository root is special: a read of a root file puts only the other root files in scope, not the subdirectories.
 
-If xis finds no scope at all, the rule does not fire. Only files with agent lines can get the flag. Human edits never get it.
+The rule does not fire for a turn in these cases:
 
-Known false positives: a prompt that names a feature but no path, and an agent that edits before it reads. Add the paths to `scope.paths` in `.xis.toml` to prevent them.
+- xis finds no scope for the turn.
+- The scope has only identifiers, and no file of the turn is in scope. Then the inference failed, and a flag on each file would be noise.
+
+Only files with agent lines can get the flag. Human edits never get it. Dependency files, CI config and build config never get it, because their own rules report them.
+
+Known false positives: an agent that edits a file before it reads it. Add the paths to `scope.paths` in `.xis.toml` to prevent them.

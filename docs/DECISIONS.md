@@ -308,3 +308,39 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** OpenAI-compatible servers do not accept the same fields. Some reject a strict JSON schema or each `response_format`. Some reasoning models reject `temperature: 0` and `max_tokens`. Free tiers often send HTTP 429.
 - **Choice:** After HTTP 400 or 422, xis reads the error message. If the message names a field, xis changes that field and sends the request again. The JSON format goes from a strict schema to a schema, to JSON mode, to no format. Without a schema format, the schema goes into the system prompt. After HTTP 429 or 5xx, xis waits and tries again, up to 3 times. The provider keeps the changes for its next requests.
 - **Why:** One fixed request shape fails on many servers, and the user cannot fix that in the config. xis checks the JSON of each reply and asks again once, so a weaker format still gives valid output. xis does not change a request for other errors, so a real error stays visible.
+
+## D52. Short form of a stable ID
+
+- **Context:** xis makes the IDs of changes, hunks and flags with `StableID` and a zero time. The first 10 characters of a ULID are the time, so each short form was `0000000000`. A real session showed this. `xis flags suppress ID` could not select a flag.
+- **Choice:** The short form drops the zero time prefix. `xis flags suppress` accepts the short form and the full ID.
+- **Why:** The other characters come from a hash, so they are different for each ID.
+
+## D53. Alphabet strings in the entropy check
+
+- **Context:** A real session added `alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"`. The entropy check found a secret, and `SECRET_IN_CHANGE` stopped the commit.
+- **Choice:** The entropy check ignores a token if at least half of its characters follow the previous character in ASCII order.
+- **Why:** A random secret almost never has long ascending runs. An alphabet string always has them.
+
+## D54. Scope of each turn
+
+- **Context:** A real session showed three problems of `OUT_OF_SCOPE`. The agent read files with `cat` in Bash, not with the Read tool. A prompt named only an identifier. A later prompt named a path, and the files of the earlier turn then became out of scope.
+- **Choice:** xis infers a scope for each turn, and the scope grows over the session. Paths in the shell commands before the first edit of a turn count as reads. A file whose added lines use a prompt identifier is in scope. If the scope has only identifiers and no file of the turn matches, the rule does not fire for the turn. Dependency files, CI config and build config never get the flag.
+- **Why:** Each of these cases flagged every file of a normal change. A rule that flags each file teaches the user to ignore it. Each manifest file already has its own rule.
+
+## D55. Moved lines in REVERT_REAPPLY
+
+- **Context:** An agent that rewrites a whole file makes edits that remove a line and add the same line again. The rule counted these lines as a revert.
+- **Choice:** A line that one edit both removes and adds is a moved line. The rule ignores it.
+- **Why:** A move is not a sign of uncertainty. The rule must find add, remove and add again over separate edits.
+
+## D56. Blame of copied lines
+
+- **Context:** Section 10 asks for `git blame -M`. `-M` also follows a line that a step copies in a file. A real session added `if !ok { http.NotFound(w, r); return }`, which was already in the file. Blame gave the new lines to the commit before the session, so they became unattributed.
+- **Choice:** xis runs blame with `-M` first. For an added line whose blamed commit is not a step, xis runs blame without `-M` and uses that result.
+- **Why:** An added line in the change is new in the session range. Its origin must be a step. `-M` stays for lines that a step moved.
+
+## D57. Edits before the session start
+
+- **Context:** A user edit that is in the working tree before the first prompt is not between two turns. Section 9.1 makes a `human_edit` step only between turns.
+- **Choice:** xis does not attribute such lines. They are unattributed, and `UNATTRIBUTED_CHANGE` reports them.
+- **Why:** Before the first snapshot, xis did not observe the edit. Another tool or an earlier agent could have made it. Section 9.3 also marks hunks without proof as unattributed and never guesses.

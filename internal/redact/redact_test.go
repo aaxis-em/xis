@@ -57,6 +57,8 @@ func TestNoFalsePositives(t *testing.T) {
 		"commit 3f786850e387550fdab836ed7e6dc881de23001b",
 		"func TestEditAfterFailureRuleFiresWhenTestsFail(t *testing.T) {",
 		"go test ./... ok github.com/aaxis-em/xis/internal/store 0.071s",
+		`alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"`,
+		`const base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"`,
 	} {
 		if out := r.String(s); out != s {
 			t.Errorf("changed %q to %q", s, out)

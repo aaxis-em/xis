@@ -1,11 +1,14 @@
 package rules
 
 import (
+	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
+	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/model"
 )
@@ -14,8 +17,11 @@ type Scope struct {
 	Dirs  map[string]bool
 	Files map[string]bool
 	Names map[string]bool
-	tests func(string) bool
-	stems map[string]bool
+	// FromPaths is false when only identifiers from the prompts formed the scope.
+	FromPaths bool
+	tests     func(string) bool
+	stems     map[string]bool
+	idents    []string
 }
 
 var (
@@ -107,10 +113,19 @@ func (s *Scope) Describe() string {
 	return "scope: " + strings.Join(parts, ", ")
 }
 
-// InferScope is conservative: the scope is the paths and identifiers in the
-// user prompts, the directories the agent read before its first edit, the
-// configured scope.paths, and test files that mirror an in-scope file.
-func InferScope(c *Context) *Scope {
+func (s *Scope) addRead(c *Context, p string, search bool) {
+	rel := c.RelPath(p)
+	if rel == "" || strings.HasPrefix(rel, "/") || strings.HasPrefix(rel, "..") || strings.Contains(rel, "...") {
+		return
+	}
+	dir := path.Dir(rel)
+	if search && path.Ext(rel) == "" {
+		dir = rel
+	}
+	s.Dirs[dir] = true
+}
+
+func newScope(c *Context) *Scope {
 	s := &Scope{Dirs: map[string]bool{}, Files: map[string]bool{}, Names: map[string]bool{}, tests: c.Tests.IsTestFile, stems: map[string]bool{}}
 	for _, p := range c.Cfg.Scope.Paths {
 		p = strings.TrimSpace(p)
@@ -118,43 +133,46 @@ func InferScope(c *Context) *Scope {
 			s.Dirs[strings.TrimSuffix(strings.TrimPrefix(p, "./"), "/")] = true
 		}
 	}
-	for _, d := range c.Sessions {
-		firstEdit := len(d.Steps) + 1
-		for _, st := range d.Steps {
-			if len(d.EditsOf(st.ID)) > 0 && c.agentStep(d, st) {
-				firstEdit = st.Seq
-				break
-			}
+	return s
+}
+
+func (s *Scope) clone() *Scope {
+	n := &Scope{Dirs: maps.Clone(s.Dirs), Files: maps.Clone(s.Files), Names: maps.Clone(s.Names), tests: s.tests, stems: map[string]bool{}}
+	n.idents = slices.Clone(s.idents)
+	return n
+}
+
+func (s *Scope) addPrompt(text string) {
+	for _, m := range pathTokenRe.FindAllString(text, -1) {
+		s.addPath(m)
+	}
+	for _, m := range backtickRe.FindAllStringSubmatch(text, -1) {
+		s.addPath(m[1])
+	}
+	for _, m := range identifierRe.FindAllString(text, -1) {
+		s.Names[strings.ToLower(m)] = true
+		s.idents = append(s.idents, normIdent(m))
+	}
+}
+
+func (s *Scope) addTool(c *Context, tc model.ToolCall) {
+	switch tc.Category {
+	case model.CatRead, model.CatSearch:
+		for _, p := range claudecode.ToolPaths(tc.Input) {
+			s.addRead(c, p, tc.Category == model.CatSearch)
 		}
-		for _, st := range d.Steps {
-			switch {
-			case st.Kind == model.StepUserMessage:
-				for _, m := range pathTokenRe.FindAllString(st.Text, -1) {
-					s.addPath(m)
-				}
-				for _, m := range backtickRe.FindAllStringSubmatch(st.Text, -1) {
-					s.addPath(m[1])
-				}
-				for _, m := range identifierRe.FindAllString(st.Text, -1) {
-					s.Names[strings.ToLower(m)] = true
-				}
-			case st.Seq < firstEdit:
-				tc, ok := d.ToolCalls[st.ID]
-				if !ok || (tc.Category != model.CatRead && tc.Category != model.CatSearch) {
-					continue
-				}
-				for _, p := range claudecode.ToolPaths(tc.Input) {
-					rel := c.RelPath(p)
-					if rel == "" || strings.HasPrefix(rel, "/") || strings.HasPrefix(rel, "..") {
-						continue
-					}
-					dir := path.Dir(rel)
-					if tc.Category == model.CatSearch && path.Ext(rel) == "" {
-						dir = rel
-					}
-					s.Dirs[dir] = true
-				}
-			}
+	case model.CatShell, model.CatTest:
+		for _, p := range pathTokenRe.FindAllString(adapters.Command(tc.Input), -1) {
+			s.addRead(c, p, false)
+		}
+	}
+}
+
+func (s *Scope) finish(c *Context) {
+	s.FromPaths = len(s.Dirs) > 0 || len(s.Files) > 0
+	for _, f := range c.Files {
+		if usesIdent(c, f.Path, s.idents) {
+			s.Files[f.Path] = true
 		}
 	}
 	for _, f := range c.Files {
@@ -168,5 +186,59 @@ func InferScope(c *Context) *Scope {
 	for n := range s.Names {
 		s.stems[strings.SplitN(n, ".", 2)[0]] = true
 	}
-	return s
+}
+
+// TurnScopes gives each step the scope of its turn. The scope is conservative
+// and grows over the session: the paths and identifiers in the prompts so
+// far, the directories the agent read or named in a shell command before the
+// first edit of each turn, the configured scope.paths, files whose added
+// lines use a prompt identifier, and test files that mirror an in-scope file.
+func TurnScopes(c *Context) map[string]*Scope {
+	out := map[string]*Scope{}
+	for _, d := range c.Sessions {
+		cur := newScope(c)
+		turns := []*Scope{cur}
+		edited := false
+		for _, st := range d.Steps {
+			switch {
+			case st.Kind == model.StepUserMessage:
+				cur = cur.clone()
+				cur.addPrompt(st.Text)
+				turns = append(turns, cur)
+				edited = false
+			case edited:
+			case len(d.EditsOf(st.ID)) > 0 && c.agentStep(d, st):
+				edited = true
+			default:
+				if tc, ok := d.ToolCalls[st.ID]; ok {
+					cur.addTool(c, tc)
+				}
+			}
+			out[st.ID] = cur
+		}
+		for _, t := range turns {
+			t.finish(c)
+		}
+	}
+	return out
+}
+
+// normIdent makes expires_at, expiresAt and ExpiresAt equal.
+func normIdent(s string) string { return strings.ToLower(strings.ReplaceAll(s, "_", "")) }
+
+func usesIdent(c *Context, file string, idents []string) bool {
+	if len(idents) == 0 {
+		return false
+	}
+	for _, h := range c.HunksOf(file) {
+		for _, l := range c.Lines(h, '+') {
+			l = normIdent(l)
+			for _, id := range idents {
+				if strings.Contains(l, id) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

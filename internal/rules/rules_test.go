@@ -217,6 +217,7 @@ func TestRules(t *testing.T) {
 				b.hunk("src/auth/login.go", "+x", b.edit("src/auth/login.go", ""))
 				b.hunk("billing/invoice.go", "+y", b.edit("billing/invoice.go", ""))
 				b.hunk("src/auth/login_test.go", "+z", b.edit("src/auth/login_test.go", ""))
+				b.hunk("go.mod", "+module x", b.edit("go.mod", ""))
 			}},
 		{"SECRET_FILE_ACCESS",
 			func(b *tb) { b.tool("Bash", map[string]any{"command": "cat .env | head"}) },
@@ -247,6 +248,8 @@ func TestRules(t *testing.T) {
 			func(b *tb) {
 				b.edit("a.go", "+\treturn retry(x)")
 				b.edit("a.go", "-\treturn retry(x)")
+				b.edit("b.go", "+\treturn retry(x)\n+\tdone()")
+				b.edit("b.go", "-\treturn retry(x)\n-\tdone()\n+\tlog()\n+\treturn retry(x)\n+\tdone()")
 			}},
 		{"LONG_RETRY_LOOP",
 			func(b *tb) {
@@ -339,4 +342,62 @@ func TestMirrorStem(t *testing.T) {
 			t.Errorf("%s: got %q want %q", in, got, want)
 		}
 	}
+}
+
+func TestOutOfScopeInference(t *testing.T) {
+	flagged := func(b *tb) []string {
+		var out []string
+		for _, f := range b.run("OUT_OF_SCOPE") {
+			out = append(out, f.TargetID)
+		}
+		return out
+	}
+	t.Run("shell reads before the first edit", func(t *testing.T) {
+		b := newTB(t)
+		b.prompt("Add hit counting to the shortener")
+		b.tool("Bash", map[string]any{"command": "ls && cat store/store.go | head -40"})
+		b.hunk("store/store.go", "+\thits int", b.edit("store/store.go", ""))
+		b.hunk("billing/invoice.go", "+y", b.edit("billing/invoice.go", ""))
+		if got := flagged(b); len(got) != 1 || got[0] != "billing/invoice.go" {
+			t.Errorf("flagged %v", got)
+		}
+	})
+	t.Run("prompt identifier in added lines", func(t *testing.T) {
+		b := newTB(t)
+		b.prompt("Return expires_at in the stats response")
+		b.hunk("api/stats.go", "+\tExpiresAt *time.Time", b.edit("api/stats.go", ""))
+		b.hunk("billing/invoice.go", "+y", b.edit("billing/invoice.go", ""))
+		if got := flagged(b); len(got) != 1 || got[0] != "billing/invoice.go" {
+			t.Errorf("flagged %v", got)
+		}
+	})
+	t.Run("identifier-only scope that matches nothing", func(t *testing.T) {
+		b := newTB(t)
+		b.prompt("Make the retry_count configurable")
+		b.hunk("a.go", "+x", b.edit("a.go", ""))
+		b.hunk("b.go", "+y", b.edit("b.go", ""))
+		if got := flagged(b); len(got) != 0 {
+			t.Errorf("flagged %v", got)
+		}
+	})
+	t.Run("a later prompt does not narrow an earlier turn", func(t *testing.T) {
+		b := newTB(t)
+		b.prompt("Make the short codes 8 characters long")
+		b.hunk("store/store.go", "+\tconst codeLen = 8", b.edit("store/store.go", ""))
+		b.hunk("api/handler_test.go", "+\twant := 8", b.edit("api/handler_test.go", ""))
+		b.prompt("Skip the flaky test in store/store_test.go")
+		b.hunk("store/store_test.go", "+\tt.Skip(\"flaky\")", b.edit("store/store_test.go", ""))
+		b.hunk("billing/invoice.go", "+y", b.edit("billing/invoice.go", ""))
+		if got := flagged(b); len(got) != 1 || got[0] != "billing/invoice.go" {
+			t.Errorf("flagged %v", got)
+		}
+	})
+	t.Run("named path that the agent never touched", func(t *testing.T) {
+		b := newTB(t)
+		b.prompt("Fix the bug in auth/login.go")
+		b.hunk("billing/invoice.go", "+y", b.edit("billing/invoice.go", ""))
+		if got := flagged(b); len(got) != 1 {
+			t.Errorf("flagged %v", got)
+		}
+	})
 }

@@ -35,7 +35,11 @@ func init() {
 			if f.Deleted || !c.Tests.IsTestFile(f.Path) || !c.FileAgentTouched(f.Path) {
 				continue
 			}
-			out = append(out, r.fileFlag(c, f.Path, fmt.Sprintf("The agent changed the test file %s.", f.Path)))
+			verb := "changed"
+			if f.Created {
+				verb = "added"
+			}
+			out = append(out, r.fileFlag(c, f.Path, fmt.Sprintf("The agent %s the test file %s.", verb, f.Path)))
 		}
 		return out
 	})
@@ -236,16 +240,46 @@ func init() {
 	})
 
 	def("OUT_OF_SCOPE", model.SevMedium, func(r *rule, c *Context) []model.Flag {
-		sc := InferScope(c)
-		if sc.Empty() {
-			return nil
-		}
-		var out []model.Flag
+		scopes := TurnScopes(c)
+		touched := map[*Scope][]string{}
+		var order []*Scope
 		for _, f := range c.Files {
-			if !c.FileAgentTouched(f.Path) || sc.Contains(f.Path) {
+			if testdetect.Classify(f.Path) != testdetect.NotManifest {
 				continue
 			}
-			out = append(out, r.fileFlag(c, f.Path, fmt.Sprintf("%s is outside the inferred scope of the session (%s).", f.Path, sc.Describe())))
+			seen := map[*Scope]bool{}
+			for _, h := range c.HunksOf(f.Path) {
+				for _, step := range c.AgentSteps(h) {
+					sc := scopes[step]
+					if sc == nil || seen[sc] {
+						continue
+					}
+					seen[sc] = true
+					if touched[sc] == nil {
+						order = append(order, sc)
+					}
+					touched[sc] = append(touched[sc], f.Path)
+				}
+			}
+		}
+		var out []model.Flag
+		flagged := map[string]bool{}
+		for _, sc := range order {
+			var outside []string
+			for _, p := range touched[sc] {
+				if !sc.Contains(p) {
+					outside = append(outside, p)
+				}
+			}
+			if sc.Empty() || (len(outside) == len(touched[sc]) && !sc.FromPaths) {
+				continue
+			}
+			for _, p := range outside {
+				if !flagged[p] {
+					flagged[p] = true
+					out = append(out, r.fileFlag(c, p, fmt.Sprintf("%s is outside the inferred scope of the session (%s).", p, sc.Describe())))
+				}
+			}
 		}
 		return out
 	})
@@ -356,12 +390,20 @@ func init() {
 					lines = map[string]*state{}
 					files[e.FilePath] = lines
 				}
+				plus, minus := map[string]bool{}, map[string]bool{}
+				for _, l := range strings.Split(e.Patch, "\n") {
+					if strings.HasPrefix(l, "+") {
+						plus[strings.TrimSpace(l[1:])] = true
+					} else if strings.HasPrefix(l, "-") {
+						minus[strings.TrimSpace(l[1:])] = true
+					}
+				}
 				for _, l := range strings.Split(e.Patch, "\n") {
 					if len(l) < 2 || strings.HasPrefix(l, "+++") || strings.HasPrefix(l, "---") {
 						continue
 					}
 					text := strings.TrimSpace(l[1:])
-					if len(text) < 4 {
+					if len(text) < 4 || (plus[text] && minus[text]) {
 						continue
 					}
 					st := lines[text]

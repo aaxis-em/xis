@@ -98,7 +98,8 @@ func (s *Store) FlagCountsBySession(sessionID string) (map[string]int, error) {
 }
 
 func (s *Store) FindFlag(idOrPrefix string) (model.Flag, error) {
-	rows, err := s.query(`SELECT id FROM flags WHERE id = ? OR id LIKE ? LIMIT 2`, idOrPrefix, strings.ToUpper(idOrPrefix)+"%")
+	p := strings.ToUpper(idOrPrefix)
+	rows, err := s.query(`SELECT id FROM flags WHERE id = ? OR id LIKE ? OR id LIKE ? LIMIT 2`, idOrPrefix, p+"%", model.StableIDPrefix+p+"%")
 	if err != nil {
 		return model.Flag{}, err
 	}

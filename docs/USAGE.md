@@ -166,8 +166,8 @@ The command runs the rules on a change and prints the flags. The rules need no L
 ```console
 $ xis flags
 SEVERITY  RULE                     LOCATION      MESSAGE                                                         ID
-high      TEST_EDIT_AFTER_FAILURE  step 12       The agent edited the test file calc_test.go after a failing...  01M5D2K9QZ
-medium    TEST_FILE_MODIFIED       calc_test.go  The agent changed the test file calc_test.go.                   01M5D2K9R4
+high      TEST_EDIT_AFTER_FAILURE  step 12       The agent edited the test file calc_test.go after a failing...  5ZWQ3X7HGN
+medium    TEST_FILE_MODIFIED       calc_test.go  The agent changed the test file calc_test.go.                   B1T0FXEV2C
 ```
 
 Use the change options to select the change:

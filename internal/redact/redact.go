@@ -74,6 +74,18 @@ func shannon(s string) float64 {
 	return h
 }
 
+// isCharset reports an alphabet literal such as "abc...xyz0123456789". Half
+// of its neighbours are consecutive characters; a random secret has almost none.
+func isCharset(s string) bool {
+	runs := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] == s[i-1]+1 {
+			runs++
+		}
+	}
+	return runs*2 >= len(s)
+}
+
 func hasDigitAndLetter(s string) bool {
 	d, l := false, false
 	for _, c := range s {
@@ -115,7 +127,7 @@ func (r *Redactor) Findings(s string) []Finding {
 	}
 	if r.entropy > 0 {
 		for _, tok := range tokenRe.FindAllString(s, -1) {
-			if len(tok) >= r.minLen && hasDigitAndLetter(tok) && shannon(tok) >= r.entropy {
+			if len(tok) >= r.minLen && hasDigitAndLetter(tok) && !isCharset(tok) && shannon(tok) >= r.entropy {
 				out = append(out, Finding{Rule: "entropy", Secret: tok})
 			}
 		}

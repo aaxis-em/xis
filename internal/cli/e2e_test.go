@@ -569,3 +569,41 @@ func TestE2EIngestTwice(t *testing.T) {
 		t.Error("no edits after the second ingest")
 	}
 }
+
+func TestShortIDOfStableID(t *testing.T) {
+	a, b := model.StableID(time.Time{}, "a"), model.StableID(time.Time{}, "b")
+	if shortID(a) == shortID(b) || strings.HasPrefix(shortID(a), "0000") {
+		t.Errorf("short IDs %q and %q", shortID(a), shortID(b))
+	}
+	if s := model.NewID(); shortID(s) != s[:10] {
+		t.Errorf("shortID(%q) = %q", s, shortID(s))
+	}
+}
+
+func TestE2ECopiedLinesKeepTheirStep(t *testing.T) {
+	s := newScenario(t)
+	handler := "\tst, ok := s.Lookup(r.PathValue(\"code\"))\n\tif !ok {\n\t\thttp.NotFound(w, r)\n\t\treturn\n\t}\n\tw.Header().Set(\"Content-Type\", \"application/json\")\n"
+	s.write("server.go", "package calc\n\nfunc resolve(w http.ResponseWriter, r *http.Request) {\n"+handler+"\t_ = st\n}\n")
+	if out, err := exec.Command("sh", "-c", "cd \"$0\" && git add server.go && git commit -qm server", s.repo).CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("Add a stats handler.")
+	s.tool("t1-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "server.go")}, func() {
+		s.write("server.go", "package calc\n\nfunc resolve(w http.ResponseWriter, r *http.Request) {\n"+handler+"\t_ = st\n}\n\nfunc stats(w http.ResponseWriter, r *http.Request) {\n"+handler+"\tjson.NewEncoder(w).Encode(st)\n}\n")
+	}, "", 0)
+	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	s.hook("SessionEnd", map[string]any{"reason": "other"})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+	st := openTestStore(t)
+	app := &App{Paths: config.DefaultPaths(), Cfg: config.Default(), RepoDir: s.repo}
+	_, res, err := app.computeChange(st, attribution.Options{Mode: attribution.ModeSession})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(map[string][]string{"server.go": {"t1-edit:10"}}, provenanceByFile(t, st, res)); diff != "" {
+		t.Errorf("provenance (-want +got):\n%s", diff)
+	}
+}

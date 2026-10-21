@@ -317,7 +317,7 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 		}
 	}
 	for _, fp := range res.Files {
-		var blame map[int]string
+		var blame, plain map[int]string
 		hasAdded := false
 		for _, h := range fp.Hunks {
 			for _, l := range gitx.HunkLines(h) {
@@ -327,7 +327,7 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 			}
 		}
 		if hasAdded && !fp.Binary {
-			if b, err := e.blame(res.AttribCommit, fp.Path); err == nil {
+			if b, err := e.blame(res.AttribCommit, fp.Path, true); err == nil {
 				blame = b
 			}
 		}
@@ -368,7 +368,14 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 				case '+':
 					step := model.Unattributed
 					if blame != nil {
-						if s, ok := snapStep[blame[l.NewLine]]; ok {
+						s, ok := snapStep[blame[l.NewLine]]
+						if !ok {
+							if plain == nil {
+								plain, _ = e.blame(res.AttribCommit, fp.Path, false)
+							}
+							s, ok = snapStep[plain[l.NewLine]]
+						}
+						if ok {
 							step = s
 						}
 					} else if s := lastEditStep(live[fp.Path], res.StepSession); s != "" {
@@ -434,8 +441,15 @@ func removedBy(edits []editRef, text string, known map[string]string) string {
 	return ""
 }
 
-func (e *Engine) blame(commit, path string) (map[int]string, error) {
-	out, err := e.Shadow.Git().Output("blame", "--porcelain", "-w", "-M", commit, "--", path)
+// blame with moves follows lines that a step moved, but it also gives a new
+// line that copies an older one to the older commit. The caller then asks
+// again without moves.
+func (e *Engine) blame(commit, path string, moves bool) (map[int]string, error) {
+	args := []string{"blame", "--porcelain", "-w"}
+	if moves {
+		args = append(args, "-M")
+	}
+	out, err := e.Shadow.Git().Output(append(args, commit, "--", path)...)
 	if err != nil {
 		return nil, err
 	}
