@@ -55,9 +55,12 @@ func (r *rule) flag(c *Context, session, kind, target, key, msg string, evidence
 	}
 }
 
-func (r *rule) hunkFlag(c *Context, h model.Hunk, msg string, evidence ...string) model.Flag {
+// hunkFlag points to line, or to the start of the hunk when line is 0.
+func (r *rule) hunkFlag(c *Context, h model.Hunk, line int, msg string, evidence ...string) model.Flag {
 	key := h.FilePath + "#" + h.ContentHash
-	return r.flag(c, c.SessionOfHunk(h), "hunk", h.ID, key, msg, append(evidence, c.AgentSteps(h)...)...)
+	f := r.flag(c, c.SessionOfHunk(h), "hunk", h.ID, key, msg, append(evidence, c.AgentSteps(h)...)...)
+	f.Line = line
+	return f
 }
 
 func (r *rule) fileFlag(c *Context, path, msg string, evidence ...string) model.Flag {

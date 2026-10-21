@@ -244,6 +244,7 @@ type Flag struct {
 	Detector        string
 	TargetKind      string
 	TargetID        string
+	Line            int
 	Message         string
 	EvidenceStepIDs []string
 	Suppressed      bool

@@ -53,7 +53,7 @@ func TestOpenPermissionsAndMigrations(t *testing.T) {
 	}
 	ms, err := s.Migrations()
 	must(t, err)
-	if len(ms) != 2 {
+	if len(ms) != 3 {
 		t.Errorf("migrations = %v", ms)
 	}
 	must(t, s.Check())
@@ -207,7 +207,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	flag := model.Flag{ID: "f1", ChangeID: "c1", SessionID: "s1", RuleID: "TEST_SKIPPED", Severity: model.SevHigh, Detector: "rule",
-		TargetKind: "hunk", TargetID: "h1", Message: "m", EvidenceStepIDs: []string{"st1"}, Fingerprint: "fp1"}
+		TargetKind: "hunk", TargetID: "h1", Line: 7, Message: "m", EvidenceStepIDs: []string{"st1"}, Fingerprint: "fp1"}
 	must(t, s.PutFlag(flag))
 	gotFlag, err := s.GetFlag("f1")
 	must(t, err)

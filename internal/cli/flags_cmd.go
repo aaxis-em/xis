@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -102,7 +103,7 @@ func (ca *changeAnalysis) location(f model.Flag) string {
 	case "hunk":
 		for _, h := range ca.Result.Hunks {
 			if h.ID == f.TargetID {
-				return fmt.Sprintf("%s:%d", h.FilePath, h.NewStart)
+				return fmt.Sprintf("%s:%d", h.FilePath, cmp.Or(f.Line, h.NewStart))
 			}
 		}
 	case "step":

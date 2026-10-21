@@ -62,6 +62,30 @@ func (c *Context) Lines(h model.Hunk, kind byte) []string {
 	return out
 }
 
+type AddedLine struct {
+	N    int
+	Text string
+}
+
+// Added gives the added lines of a hunk with their line numbers in the new file.
+func (c *Context) Added(h model.Hunk) []AddedLine {
+	var out []AddedLine
+	n := h.NewStart
+	for i, l := range strings.Split(c.patch(h), "\n") {
+		if i == 0 && strings.HasPrefix(l, "@@") || strings.HasPrefix(l, "\\") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(l, "+"):
+			out = append(out, AddedLine{N: n, Text: l[1:]})
+			n++
+		case !strings.HasPrefix(l, "-"):
+			n++
+		}
+	}
+	return out
+}
+
 func (c *Context) AgentLines(h model.Hunk) int {
 	n := 0
 	for _, p := range c.Provenance[h.ID] {

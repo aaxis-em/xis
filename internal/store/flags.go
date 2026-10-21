@@ -11,13 +11,13 @@ import (
 )
 
 const flagCols = `f.id, f.change_id, f.session_id, f.rule_id, f.severity, f.detector, f.target_kind, f.target_id,
-	f.message, f.evidence_step_ids, f.suppressed, f.fingerprint, s.reason`
+	f.message, f.evidence_step_ids, f.suppressed, f.fingerprint, s.reason, f.line`
 
 func (s *Store) PutFlag(f model.Flag) error {
-	return s.exec(`INSERT OR REPLACE INTO flags (id, change_id, session_id, rule_id, severity, detector, target_kind, target_id, message, evidence_step_ids, suppressed, fingerprint)
-		VALUES (?,?,?,?,?,?,?,?,?,?, CASE WHEN ? = 1 OR EXISTS (SELECT 1 FROM suppressions WHERE fingerprint = ?) THEN 1 ELSE 0 END, ?)`,
+	return s.exec(`INSERT OR REPLACE INTO flags (id, change_id, session_id, rule_id, severity, detector, target_kind, target_id, message, evidence_step_ids, suppressed, fingerprint, line)
+		VALUES (?,?,?,?,?,?,?,?,?,?, CASE WHEN ? = 1 OR EXISTS (SELECT 1 FROM suppressions WHERE fingerprint = ?) THEN 1 ELSE 0 END, ?, ?)`,
 		f.ID, f.ChangeID, nullStr(f.SessionID), f.RuleID, string(f.Severity), f.Detector, f.TargetKind, f.TargetID,
-		f.Message, jsonList(f.EvidenceStepIDs), boolInt(f.Suppressed), f.Fingerprint, f.Fingerprint)
+		f.Message, jsonList(f.EvidenceStepIDs), boolInt(f.Suppressed), f.Fingerprint, f.Fingerprint, f.Line)
 }
 
 func (s *Store) DeleteFlags(changeID, detector string) error {
@@ -27,8 +27,9 @@ func (s *Store) DeleteFlags(changeID, detector string) error {
 func scanFlag(sc interface{ Scan(...any) error }) (model.Flag, error) {
 	var f model.Flag
 	var change, sess, rule, sev, det, tk, tid, msg, ev, fp, reason sql.NullString
-	var sup sql.NullInt64
-	err := sc.Scan(&f.ID, &change, &sess, &rule, &sev, &det, &tk, &tid, &msg, &ev, &sup, &fp, &reason)
+	var sup, line sql.NullInt64
+	err := sc.Scan(&f.ID, &change, &sess, &rule, &sev, &det, &tk, &tid, &msg, &ev, &sup, &fp, &reason, &line)
+	f.Line = int(line.Int64)
 	f.ChangeID, f.SessionID, f.RuleID, f.Severity, f.Detector = str(change), str(sess), str(rule), model.Severity(str(sev)), str(det)
 	f.TargetKind, f.TargetID, f.Message, f.EvidenceStepIDs = str(tk), str(tid), str(msg), parseList(ev)
 	f.Suppressed, f.Fingerprint, f.SuppressReason = sup.Int64 != 0, str(fp), str(reason)

@@ -401,3 +401,21 @@ func TestOutOfScopeInference(t *testing.T) {
 		}
 	})
 }
+
+func TestHunkFlagsPointToTheLine(t *testing.T) {
+	body := " package a\n-\told()\n \tx := 1\n+\ty := 2\n+\t%s\n \treturn"
+	for id, line := range map[string]string{
+		"TEST_SKIPPED":     `t.Skip("flaky")`,
+		"LINT_SUPPRESSED":  "z := 3 //nolint:errcheck",
+		"SECRET_IN_CHANGE": `key := "` + redact.FakeSecrets["github"] + `"`,
+	} {
+		b := newTB(t)
+		h := b.hunk("a_test.go", fmt.Sprintf(body, line), b.edit("a_test.go", ""))
+		h.NewStart = 10
+		b.c.Hunks[0] = h
+		fs := b.run(id)
+		if len(fs) != 1 || fs[0].Line != 13 {
+			t.Errorf("%s: flags %+v, want one at line 13", id, fs)
+		}
+	}
+}

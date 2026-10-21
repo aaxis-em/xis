@@ -79,9 +79,9 @@ func init() {
 	def("TEST_SKIPPED", model.SevHigh, func(r *rule, c *Context) []model.Flag {
 		var out []model.Flag
 		for _, h := range c.Hunks {
-			for _, l := range c.Lines(h, '+') {
-				if m := skipRe.FindString(l); m != "" {
-					out = append(out, r.hunkFlag(c, h, fmt.Sprintf("A test is skipped or disabled in %s (%q).", h.FilePath, strings.TrimSpace(m))))
+			for _, l := range c.Added(h) {
+				if m := skipRe.FindString(l.Text); m != "" {
+					out = append(out, r.hunkFlag(c, h, l.N, fmt.Sprintf("A test is skipped or disabled in %s (%q).", h.FilePath, strings.TrimSpace(m))))
 					break
 				}
 			}
@@ -229,9 +229,9 @@ func init() {
 	def("LINT_SUPPRESSED", model.SevMedium, func(r *rule, c *Context) []model.Flag {
 		var out []model.Flag
 		for _, h := range c.Hunks {
-			for _, l := range c.Lines(h, '+') {
-				if m := lintSuppressRe.FindString(l); m != "" {
-					out = append(out, r.hunkFlag(c, h, fmt.Sprintf("A lint suppression was added in %s (%q).", h.FilePath, strings.TrimSpace(m))))
+			for _, l := range c.Added(h) {
+				if m := lintSuppressRe.FindString(l.Text); m != "" {
+					out = append(out, r.hunkFlag(c, h, l.N, fmt.Sprintf("A lint suppression was added in %s (%q).", h.FilePath, strings.TrimSpace(m))))
 					break
 				}
 			}
@@ -322,10 +322,23 @@ func init() {
 		}
 		var out []model.Flag
 		for _, h := range c.Hunks {
-			added := strings.Join(c.Lines(h, '+'), "\n")
-			if fs := c.Redactor.Findings(added); len(fs) > 0 {
-				out = append(out, r.hunkFlag(c, h, fmt.Sprintf("Added lines in %s contain a secret (rule %s).", h.FilePath, fs[0].Rule)))
+			added := c.Added(h)
+			texts := make([]string, len(added))
+			for i, l := range added {
+				texts[i] = l.Text
 			}
+			fs := c.Redactor.Findings(strings.Join(texts, "\n"))
+			if len(fs) == 0 {
+				continue
+			}
+			line := 0
+			for _, l := range added {
+				if strings.Contains(l.Text, strings.SplitN(fs[0].Secret, "\n", 2)[0]) {
+					line = l.N
+					break
+				}
+			}
+			out = append(out, r.hunkFlag(c, h, line, fmt.Sprintf("Added lines in %s contain a secret (rule %s).", h.FilePath, fs[0].Rule)))
 		}
 		return out
 	})
@@ -471,7 +484,7 @@ func init() {
 				}
 			}
 			if all || len(prov) == 0 {
-				out = append(out, r.hunkFlag(c, h, fmt.Sprintf("No captured step wrote this hunk of %s.", h.FilePath)))
+				out = append(out, r.hunkFlag(c, h, 0, fmt.Sprintf("No captured step wrote this hunk of %s.", h.FilePath)))
 			}
 		}
 		return out

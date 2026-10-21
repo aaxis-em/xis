@@ -344,3 +344,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A user edit that is in the working tree before the first prompt is not between two turns. Section 9.1 makes a `human_edit` step only between turns.
 - **Choice:** xis does not attribute such lines. They are unattributed, and `UNATTRIBUTED_CHANGE` reports them.
 - **Why:** Before the first snapshot, xis did not observe the edit. Another tool or an earlier agent could have made it. Section 9.3 also marks hunks without proof as unattributed and never guesses.
+
+## D58. Line of a hunk flag
+
+- **Context:** A hunk flag showed the first line of the hunk. In a real session, the location of a `t.Skip` call was 3 lines too early.
+- **Choice:** A flag has a line. `TEST_SKIPPED`, `LINT_SUPPRESSED` and `SECRET_IN_CHANGE` set it to the added line that matches. Other hunk flags keep line 0 and show the first line of the hunk. Migration `0003` adds the column. The ID and the fingerprint of a flag do not include the line.
+- **Why:** The reviewer goes to the location directly. A suppression must not stop to match when lines above the flag move.
