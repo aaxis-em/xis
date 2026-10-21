@@ -109,7 +109,7 @@ func TestPromptPanelShowsTheFullPrompt(t *testing.T) {
 
 	m.Update(key("p"))
 	view := stripANSI(m.View())
-	if !strings.Contains(view, "PROMPT #1 (1 of 2)") || !strings.Contains(view, "Fix the login timeout") {
+	if !strings.Contains(view, "PROMPT #1 (1 of 2) Fix the login timeout") {
 		t.Errorf("panel of prompt #1 missing:\n%s", view)
 	}
 	if n := strings.Count(m.View(), "\n") + 1; n != m.height {
@@ -118,8 +118,8 @@ func TestPromptPanelShowsTheFullPrompt(t *testing.T) {
 
 	m.Update(key("p"))
 	view = stripANSI(m.View())
-	if !strings.Contains(view, "Fix all of these:") || !strings.Contains(view, "press i for the full prompt") || strings.Contains(view, "LAST LINE") {
-		t.Errorf("long prompt not cut with a hint:\n%s", view)
+	if !strings.Contains(view, "PROMPT #5 (2 of 2) Fix all of these:") || !strings.Contains(view, "i: full prompt") || strings.Contains(view, "LAST LINE") {
+		t.Errorf("long prompt not on one line with a hint:\n%s", view)
 	}
 	if n := strings.Count(m.View(), "\n") + 1; n != m.height {
 		t.Errorf("view has %d lines, want %d", n, m.height)

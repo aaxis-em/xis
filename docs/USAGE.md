@@ -234,7 +234,7 @@ The UI has three panes:
 | DIFF | The current hunk with syntax colors, and the flags of the hunk. |
 | WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
 
-By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A panel under the panes shows the full text of the prompt. It uses at most half of the height. Press `i` to read a longer prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
+By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A line under the panes shows the prompt. Press `i` to read the full prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
 
 The layout depends on the terminal width:
 

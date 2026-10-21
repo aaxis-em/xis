@@ -115,24 +115,17 @@ func (m *Model) panes(h int) []string {
 	return m.unitsPane(m.width, h)
 }
 
-// promptPanel shows the selected prompt in full under the panes, in at most
-// half of the height. "i" opens a longer prompt on its own screen.
+// promptPanel is one line under the panes with the selected prompt. "i"
+// opens the full prompt on its own screen.
 func (m *Model) promptPanel() []string {
 	t, ok := m.curTurn()
 	if !ok {
 		return nil
 	}
-	title := fmt.Sprintf("── PROMPT #%d (%d of %d) ", t.prompt.Seq, m.prompt+1, len(m.turns))
-	lines := []string{m.st.focusTitle.Render(title) + m.st.dim.Render(strings.Repeat("─", max(m.width-lipgloss.Width(title), 0)))}
-	text := wrap(t.prompt.Text, m.width-2)
-	if limit := max(m.bodyHeight()/2, 4) - 1; len(text) > limit {
-		more := len(text) - limit + 1
-		text = append(text[:limit-1], m.st.dim.Render(fmt.Sprintf("… %d more lines · press i for the full prompt", more)))
-	}
-	for _, l := range text {
-		lines = append(lines, fit(" "+l, m.width))
-	}
-	return lines
+	label := fmt.Sprintf(" PROMPT #%d (%d of %d) ", t.prompt.Seq, m.prompt+1, len(m.turns))
+	hint := "  i: full prompt "
+	text := fit(oneLine(t.prompt.Text, m.width), max(m.width-lipgloss.Width(label)-len(hint), 0))
+	return []string{m.st.focusTitle.Render(label) + text + m.st.dim.Render(hint)}
 }
 
 func statusGlyph(s string) string {
