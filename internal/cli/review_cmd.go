@@ -116,7 +116,14 @@ The UI works without an LLM.`,
 			if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
 				return userErr("xis review needs a terminal", "Use `xis report --md` or `xis flags` for non-interactive output.", nil)
 			}
-			m := tui.New(data, cb, !a.NoColor)
+			theme := a.Cfg.UI.Theme
+			m := tui.New(data, cb, !a.NoColor && theme != "none")
+			if theme == "light" {
+				m.SetLightTheme()
+			}
+			if err := m.SetKeymap(a.Cfg.UI.Keymap); err != nil {
+				return userErr(err.Error(), "Fix ui.keymap in the config.", err)
+			}
 			_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
 			return err
 		},

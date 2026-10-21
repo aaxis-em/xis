@@ -322,6 +322,11 @@ func (c Config) Validate() error {
 	default:
 		return fmt.Errorf("llm.provider: unknown provider %q (use anthropic, openaicompat or none)", c.LLM.Provider)
 	}
+	switch c.UI.Theme {
+	case "", "auto", "dark", "light", "none":
+	default:
+		return fmt.Errorf("ui.theme: unknown theme %q (use auto, dark, light or none)", c.UI.Theme)
+	}
 	for id, sev := range c.Rules.Severity {
 		switch sev {
 		case "info", "low", "medium", "high":

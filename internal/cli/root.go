@@ -138,6 +138,7 @@ func register(f func() *cobra.Command) { commandSet = append(commandSet, f) }
 
 func Execute(args []string) int {
 	g = globals{}
+	xlog.Init(config.DefaultPaths().LogFile, false)
 	root := NewRoot()
 	root.SetArgs(args)
 	err := root.Execute()

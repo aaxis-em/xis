@@ -131,7 +131,7 @@ func Build(in Input) Report {
 				}
 			}
 		}
-		r.IntentNote = fmt.Sprintf("LLM analysis not run: %d prompts recorded, no intent items. Run `xis analyze`.", prompts)
+		r.IntentNote = fmt.Sprintf("LLM analysis not run: %s recorded, no intent items. Run `xis analyze`.", plural(prompts, "prompt", "prompts"))
 	}
 	r.FilesChanged = len(in.Files)
 	for _, f := range in.Files {

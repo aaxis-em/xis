@@ -206,3 +206,21 @@ func stripANSI(s string) string {
 	}
 	return b.String()
 }
+
+func TestKeymapOverride(t *testing.T) {
+	m := New(testData(3, 1), Callbacks{}, false)
+	if err := m.SetKeymap(map[string]string{"next_unit": "ctrl+n", "quit": "Q"}); err != nil {
+		t.Fatal(err)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
+	if u, _, _, _ := m.Selection(); u != 1 {
+		t.Errorf("ctrl+n did not move to the next unit: %d", u)
+	}
+	m.Update(key("]"))
+	if u, _, _, _ := m.Selection(); u != 2 {
+		t.Errorf("default key stopped working: %d", u)
+	}
+	if err := m.SetKeymap(map[string]string{"fly": "z"}); err == nil {
+		t.Error("unknown action accepted")
+	}
+}

@@ -2,6 +2,36 @@
 
 This document describes each xis command with examples.
 
+## Workflow
+
+This diagram shows the normal workflow, from the agent session to the pull request.
+
+```mermaid
+flowchart LR
+    S[Agent session] --> R[xis review]
+    R --> F{xis flags<br/>pre-commit gate}
+    F -- high flags --> R
+    F -- pass --> C[git commit]
+    C --> N[xis note write]
+    N --> P[xis report --md<br/>in the pull request]
+```
+
+After the session, you review the change with `xis review`. The pre-commit hook runs `xis flags --staged`. A high-severity flag stops the commit, so you go back to the review. After the commit, `xis note write` attaches a signed note. Then `xis report --md` gives the text for the pull request.
+
+## Change options
+
+Most commands work on a change. These options select the change:
+
+| Option | Base | Target |
+| --- | --- | --- |
+| (none) | `HEAD` at the start of the latest session | the working tree |
+| `SESSION` | `HEAD` at the start of that session | the working tree |
+| `--staged` | `HEAD` | the index |
+| `--range A..B` | commit `A` | commit `B` |
+| `--pr` | the merge base with the default branch | `HEAD` |
+
+A session ID can be a prefix of the xis ID or of the agent session ID.
+
 ## `xis init`
 
 The command creates the data directories, the config file, the database and the signing key. Run it once.
@@ -354,3 +384,46 @@ imported 01M5F0A1B2 (codex session 019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5b): 8 step
 > **Caution:** Do not take imported attribution as exact. Codex has no hooks, so xis has no snapshots of the session.
 
 For an imported session, xis gives a hunk line to an `apply_patch` step only if that patch added a line with the same text. A line that only a shell command could have made stays unattributed, and `UNATTRIBUTED_CHANGE` flags its hunk. The report, the review UI and `xis why` show the fidelity `imported`.
+
+## `xis hook claude-code`
+
+Claude Code runs this command for each hook event. Do not run it yourself. It reads the event from stdin, writes one spool line, and takes a snapshot after a mutating tool call. It always exits with code 0 and never writes to stdout.
+
+## `xis gc`
+
+The command applies the retention settings.
+
+```console
+$ xis gc --dry-run
+would remove snapshots of 2 sessions (older than 30 days)
+would remove 0 spool files (older than 7 days)
+would remove 14 LLM cache files
+$ xis gc
+removed snapshots of 2 sessions (older than 30 days)
+removed 0 spool files (older than 7 days)
+removed 14 LLM cache files
+ran git gc on 1 shadow repositories
+```
+
+The database keeps the sessions. After `xis gc`, an old session has no line attribution, because its snapshots are gone.
+
+## Shell completion
+
+Cobra makes the completion scripts. The release archives contain them in `completions/`.
+
+```sh
+xis completion bash > ~/.local/share/bash-completion/completions/xis
+xis completion zsh > "${fpath[1]}/_xis"
+xis completion fish > ~/.config/fish/completions/xis.fish
+```
+
+## Global options
+
+| Option | Effect |
+| --- | --- |
+| `--repo PATH` | Use the repository at `PATH`. The default is the repository of the current directory. |
+| `--json` | Write data as JSON. |
+| `--no-color` | Use no colors. `NO_COLOR` has the same effect. |
+| `-v`, `--verbose` | Show debug output and the full detail of errors. |
+
+An error shows one line and a hint. Use `-v` for the full detail.

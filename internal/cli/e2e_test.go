@@ -27,6 +27,7 @@ type scenario struct {
 	transcript string
 	extraSay   string
 	readOutput string
+	midIngest  func()
 }
 
 func newScenario(t *testing.T) *scenario {
@@ -163,10 +164,16 @@ func runCalcScenario(s *scenario) {
 	s.tool("t10-test", "Bash", map[string]any{"command": "go test ./..."}, nil, "ok  \tcalc\t0.002s", 0)
 	s.say("All tests pass now.")
 	s.hook("Stop", map[string]any{"last_assistant_message": "All tests pass now."})
+	if s.midIngest != nil {
+		s.midIngest()
+	}
 	s.write("README.md", "# calc\n\nA tiny calculator.\n")
 	s.prompt("Thanks. Also bump nothing else.")
 	s.say("Done.")
 	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	if s.midIngest != nil {
+		s.midIngest()
+	}
 	s.hook("SessionEnd", map[string]any{"reason": "other"})
 }
 
@@ -485,5 +492,80 @@ func TestE2EReportNotesExport(t *testing.T) {
 	}
 	if types["calc.go"] != "ai" || types["README.md"] != "human" {
 		t.Errorf("contributors = %v", types)
+	}
+}
+
+func TestE2EGC(t *testing.T) {
+	s := newScenario(t)
+	runCalcScenario(s)
+	if _, err := run(t, "ingest"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XIS_RETENTION_SNAPSHOTS_DAYS", "30")
+	out, err := run(t, "gc")
+	if err != nil || !strings.Contains(out, "snapshots of 0 sessions") {
+		t.Fatalf("gc of a new session: %v %s", err, out)
+	}
+	st := openTestStore(t)
+	sessions, _ := st.ListSessions("", 0)
+	sess := sessions[0]
+	sess.StartedAt = sess.StartedAt.AddDate(0, 0, -40)
+	if err := st.PutSession(sess); err != nil {
+		t.Fatal(err)
+	}
+	dry, _ := run(t, "gc", "--dry-run")
+	if !strings.Contains(dry, "would remove snapshots of 1 sessions") {
+		t.Fatalf("dry run: %s", dry)
+	}
+	out, err = run(t, "gc")
+	if err != nil || !strings.Contains(out, "removed snapshots of 1 sessions") {
+		t.Fatalf("gc: %v %s", err, out)
+	}
+	again, _ := run(t, "gc")
+	if !strings.Contains(again, "snapshots of 0 sessions") {
+		t.Errorf("second gc: %s", again)
+	}
+}
+
+func TestE2EIngestTwice(t *testing.T) {
+	s := newScenario(t)
+	s.midIngest = func() {
+		if out, err := run(t, "ingest", "--session", s.session); err != nil {
+			t.Fatalf("mid-session ingest: %v %s", err, out)
+		}
+	}
+	runCalcScenario(s)
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("final ingest: %v %s", err, out)
+	}
+	st := openTestStore(t)
+	app := &App{Paths: config.DefaultPaths(), Cfg: config.Default(), RepoDir: s.repo}
+	_, res, err := app.computeChange(st, attribution.Options{Mode: attribution.ModeSession})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := provenanceByFile(t, st, res)
+	want := map[string][]string{
+		"calc.go":      {"t2-edit:3"},
+		"util.go":      {"t3-bash:2"},
+		"calc_test.go": {"t9-testedit:3"},
+		"README.md":    {"human_edit:2"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("provenance after two ingests (-want +got):\n%s", diff)
+	}
+	d, _ := st.LoadSession(res.Sessions[0].ID)
+	seen := map[string]bool{}
+	for _, tc := range d.ToolCalls {
+		if seen[tc.ToolUseID] {
+			t.Errorf("tool call %s appears twice", tc.ToolUseID)
+		}
+		seen[tc.ToolUseID] = true
+		if strings.Contains(tc.ToolUseID, "REDACTED") {
+			t.Errorf("tool use ID was redacted: %s", tc.ToolUseID)
+		}
+	}
+	if len(d.Edits) == 0 {
+		t.Error("no edits after the second ingest")
 	}
 }

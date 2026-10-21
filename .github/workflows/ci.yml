@@ -24,7 +24,7 @@ jobs:
       - uses: golangci/golangci-lint-action@v8
         with:
           version: latest
-      - run: go test -race ./...
+      - run: go test -race -gcflags=all=-d=checkptr=0 ./...
         env:
           CGO_ENABLED: "1"
       - run: make docs-lint

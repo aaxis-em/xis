@@ -4,6 +4,27 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 
 ## Packages
 
+This diagram shows the main dependencies between the packages. The arrows point from a package to the packages that it uses.
+
+```mermaid
+flowchart TD
+    cli --> tui
+    cli --> capture
+    cli --> ingest
+    cli --> rules
+    cli --> analysis
+    cli --> report
+    cli --> notes
+    capture --> snapshot
+    ingest --> adapters
+    ingest --> redact
+    rules --> attribution
+    analysis --> llm
+```
+
+`cli` is the top. `capture` (the hook) uses only `snapshot`, the adapters and `config`, so it stays fast. `ingest` uses the adapters, `redact`, `testdetect` and `store`. `attribution` uses `snapshot`, `gitx` and `store`. `rules`, `analysis`, `report` and `notes` read the result of `attribution`. No package below `cli` uses `cli`.
+
+
 | Package | Purpose |
 | --- | --- |
 | `cmd/xis` | The program entry point. |
@@ -152,7 +173,7 @@ xis never writes to the `.git` directory of the user. The snapshot respects `.gi
 
 ## Observed Claude Code formats
 
-xis parses the formats that Claude Code 2.1.304 wrote on Linux in October 2026. The fixtures in `testdata/fixtures/claudecode` contain scrubbed real data.
+xis parses the formats that Claude Code 2.1.304 wrote on Linux in October 2026. A real session with Claude Code 2.1.305 also passed the quickstart. The fixtures in `testdata/fixtures/claudecode` contain scrubbed real data.
 
 ### Hook payloads
 

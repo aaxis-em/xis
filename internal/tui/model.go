@@ -67,6 +67,7 @@ type Model struct {
 	asking    bool
 
 	status string
+	keys   map[string]string
 	Editor func(file string, line int) *exec.Cmd
 }
 
@@ -218,7 +219,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case viewAsk:
 			return m.updateAsk(msg)
 		case viewHelp:
-			if k := msg.String(); k == "q" || k == "esc" || k == "?" || k == "enter" {
+			if k := m.translate(msg.String()); k == "q" || k == "esc" || k == "?" || k == "enter" {
 				m.view = m.prev
 			}
 			return m, nil
@@ -392,7 +393,7 @@ func (m *Model) openEditor() tea.Cmd {
 }
 
 func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
+	switch m.translate(msg.String()) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "tab":
@@ -518,7 +519,7 @@ func (m *Model) updateTimeline(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateStep(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
+	switch m.translate(msg.String()) {
 	case "q", "esc":
 		m.view = m.prev
 		if m.view == viewStep {
@@ -575,7 +576,7 @@ func (m *Model) updateFlags(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) updateAsk(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
+	switch m.translate(msg.String()) {
 	case "q", "esc":
 		m.view = viewMain
 	case "ctrl+c":

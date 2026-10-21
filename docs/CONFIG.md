@@ -85,3 +85,50 @@ max_usd_per_change = 0
 ```
 
 To turn off the LLM for one command, set `XIS_LLM_PROVIDER=none`.
+
+## `[redact]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `patterns` | list of regular expressions | `[]` | More secrets to remove. If the expression has a group, xis removes only the group. |
+| `entropy_threshold` | float (bits per character) | `4.5` | The minimum Shannon entropy of a high-entropy token. 0 turns off the entropy check. |
+| `entropy_min_length` | int (characters) | `20` | The minimum length of a token for the entropy check. |
+
+Example:
+
+```toml
+[redact]
+patterns = ["internal-token-(\\w+)", "corp_[A-Z0-9]{16}"]
+```
+
+## `[retention]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `snapshots_days` | int (days) | `30` | `xis gc` removes the snapshots and the LLM cache files of older sessions. |
+| `raw_days` | int (days) | `7` | `xis gc` removes spool files that ingest did not finish in this time. |
+
+## `[notes]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `auto` | bool | `false` | If true, `xis precommit install` also installs a `post-commit` hook that runs `xis note write`. |
+
+## `[ui]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `theme` | string | `auto` | `auto`, `dark`, `light` or `none`. `none` turns off colors. `light` uses a syntax style for light terminals. |
+| `keymap` | map of action to key | `{}` | More keys for the actions of `xis review`. The default keys stay. |
+
+The keymap actions are `down`, `up`, `pane`, `expand`, `understood`, `question`, `timeline`, `flags`, `ask`, `editor`, `help`, `quit`, `search`, `next_flag`, `prev_flag`, `top`, `bottom`, `prev_unit` and `next_unit`.
+
+Example:
+
+```toml
+[ui]
+theme = "light"
+keymap = { quit = "ctrl+q", next_unit = "ctrl+n" }
+```
+
+`NO_COLOR` and `--no-color` also turn off colors.

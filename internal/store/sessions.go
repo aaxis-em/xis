@@ -10,7 +10,7 @@ import (
 
 func (s *Store) PutRepo(r model.Repo) error {
 	return s.exec(`INSERT INTO repos (id, path, remote_url, created_at) VALUES (?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET path=excluded.path, remote_url=excluded.remote_url`,
+		ON CONFLICT(id) DO UPDATE SET path=excluded.path, remote_url=COALESCE(NULLIF(excluded.remote_url, ''), repos.remote_url)`,
 		r.ID, r.Path, r.RemoteURL, ts(r.CreatedAt))
 }
 

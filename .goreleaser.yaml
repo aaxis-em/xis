@@ -1,0 +1,75 @@
+version: 2
+
+project_name: xis
+
+before:
+  hooks:
+    - go mod tidy
+    - ./scripts/completions.sh
+
+builds:
+  - id: xis
+    main: ./cmd/xis
+    binary: xis
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/aaxis-em/xis/internal/buildinfo.Version={{ .Version }}
+      - -X github.com/aaxis-em/xis/internal/buildinfo.Commit={{ .ShortCommit }}
+      - -X github.com/aaxis-em/xis/internal/buildinfo.Date={{ .Date }}
+
+archives:
+  - id: xis
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+      - docs/*.md
+      - completions/*
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+homebrew_casks:
+  - name: xis
+    binaries: [xis]
+    homepage: https://github.com/aaxis-em/xis
+    description: Show what an AI coding agent did to your code and why
+    directory: Casks
+    skip_upload: auto
+    completions:
+      bash: completions/xis.bash
+      zsh: completions/xis.zsh
+      fish: completions/xis.fish
+    dependencies:
+      - formula: git
+    repository:
+      owner: aaxis-em
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+release:
+  github:
+    owner: aaxis-em
+    name: xis
+  draft: true

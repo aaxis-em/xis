@@ -54,11 +54,12 @@ func parseHunk(h model.Hunk) (string, []diffLine) {
 
 type highlighter struct {
 	color bool
+	style string
 	cache map[string][]string
 }
 
 func newHighlighter(color bool) *highlighter {
-	return &highlighter{color: color, cache: map[string][]string{}}
+	return &highlighter{color: color, style: "monokai", cache: map[string][]string{}}
 }
 
 // render returns one styled string per diff line. Results are cached per
@@ -73,7 +74,7 @@ func (hl *highlighter) render(h model.Hunk, st styles_) []string {
 		code[i] = strings.ReplaceAll(l.text, "\t", "    ")
 	}
 	if hl.color {
-		code = highlightLines(h.FilePath, code)
+		code = highlightLines(h.FilePath, code, hl.style)
 	}
 	out := make([]string, len(lines))
 	for i, l := range lines {
@@ -90,13 +91,13 @@ func (hl *highlighter) render(h model.Hunk, st styles_) []string {
 	return out
 }
 
-func highlightLines(file string, lines []string) []string {
+func highlightLines(file string, lines []string, styleName string) []string {
 	lexer := lexers.Match(file)
 	if lexer == nil {
 		return lines
 	}
 	lexer = chroma.Coalesce(lexer)
-	style := styles.Get("monokai")
+	style := styles.Get(styleName)
 	f := formatters.Get("terminal256")
 	out := make([]string, len(lines))
 	for i, l := range lines {

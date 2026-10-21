@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -88,8 +89,20 @@ The command keeps the other keys in the file. It removes comments from the file.
 				}
 				path = filepath.Join(a.RepoDir, ".xis.toml")
 			}
+			old, readErr := os.ReadFile(path)
 			if err := config.SetInFile(path, args[0], args[1]); err != nil {
 				return userErr(err.Error(), "Run `xis config get` to see all keys.", err)
+			}
+			if c, err := config.Load(a.Paths, a.RepoDir); err == nil {
+				err = c.Validate()
+				if err != nil {
+					if readErr == nil {
+						_ = config.WriteFile(path, old)
+					} else {
+						_ = os.Remove(path)
+					}
+					return userErr(err.Error(), "The file is unchanged.", err)
+				}
 			}
 			fmt.Fprintf(a.Out, "set %s = %s in %s\n", args[0], args[1], path)
 			return nil

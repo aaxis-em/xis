@@ -126,6 +126,18 @@ func runDoctor(a *App) []check {
 		add("hooks", "ok", "installed ("+strings.Join(installedIn, ", ")+")", "")
 	}
 
+	if a.RepoDir != "" {
+		if dir, err := gitHooksDir(a.RepoDir); err == nil {
+			b, err := os.ReadFile(filepath.Join(dir, "pre-commit"))
+			switch {
+			case err == nil && strings.Contains(string(b), gitHookMarker):
+				add("pre-commit", "ok", "installed", "")
+			default:
+				add("pre-commit", "info", "not installed (optional)", "Run `xis precommit install` to block commits with high-severity flags.")
+			}
+		}
+	}
+
 	files, err := capture.ListSpool(a.Paths.Spool)
 	switch {
 	case err != nil:

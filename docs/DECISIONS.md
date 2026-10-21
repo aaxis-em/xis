@@ -254,3 +254,39 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Claude Code puts a shell command in a string field. Codex puts it in an array such as `["bash", "-lc", "go test ./..."]`.
 - **Choice:** `internal/adapters.Command` reads all known forms. Test detection, the rules and the LLM evidence pack use it.
 - **Why:** The rules must see the same command for every agent.
+
+## D43. Homebrew cask instead of a formula
+
+- **Context:** Section 9 asks for a Homebrew tap formula. GoReleaser v2 deprecates `brews` (formulas) and replaces them with `homebrew_casks`.
+- **Choice:** `.goreleaser.yaml` publishes a cask to the tap `aaxis-em/homebrew-tap`, with the shell completions. `brew install aaxis-em/tap/xis` installs it.
+- **Why:** `goreleaser check` fails on deprecated keys. The cask installs the same binary.
+
+## D44. Release parallelism
+
+- **Context:** A GoReleaser build of all 5 targets in parallel ran out of memory on a machine with 7 GB.
+- **Choice:** `make snapshot` runs GoReleaser with `-p 2`.
+- **Why:** The build then needs less memory. It takes about 30 seconds more.
+
+## D45. Configured keys in the review UI
+
+- **Context:** Section 18 asks for keymap overrides in `[ui]`.
+- **Choice:** `ui.keymap` maps an action name to an extra key. The default keys stay.
+- **Why:** The footer and the help text stay correct, and an override cannot remove a key by mistake.
+
+## D46. Redaction of stored hook events
+
+- **Context:** The entropy check of the redactor treats a `tool_use_id` such as `toolu_015dd34kGCsGJ4CBb9vHM2y7` as a secret. The first version redacted whole stored hook events. A second ingest of the same session then could not join the stored events with the transcript, and tool calls appeared twice.
+- **Choice:** xis redacts only the content fields of a stored hook event: `tool_input`, `tool_response`, `prompt`, `last_assistant_message`, `error` and `message`. IDs and paths stay unchanged.
+- **Why:** IDs are not secrets, and the join needs them. A real Claude Code session in the quickstart test found this bug.
+
+## D47. Repository of a session on a later ingest
+
+- **Context:** Only spool lines with a snapshot carry the repository. After an ingest at `Stop`, the spool can hold only `Stop` and `SessionEnd` lines.
+- **Choice:** If the spool has no repository line, ingest takes the repository of the stored session.
+- **Why:** Otherwise the second ingest finds no shadow repository and loses all edits. The test `TestE2EIngestTwice` covers this case.
+
+## D48. `checkptr` in race tests
+
+- **Context:** `github.com/spaolacci/murmur3` v1.1.0 uses pointer arithmetic that the Go `checkptr` check rejects. `go test -race` turns on `checkptr`, so the hash tests crash there.
+- **Choice:** `make race` and CI run `go test -race -gcflags=all=-d=checkptr=0`. The race detector stays on.
+- **Why:** Section 3 names this library for Agent Trace compatibility. The check fails on a pattern in the library, not on a data race. xis code has no unsafe pointer use.

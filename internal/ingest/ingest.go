@@ -155,6 +155,11 @@ func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Re
 	}
 
 	in.redactTrace(&tr)
+	if repoInfo == nil && known && existing.RepoID != "" {
+		if r, err := in.Store.GetRepo(existing.RepoID); err == nil && r.Path != "" {
+			repoInfo = &capture.RepoInfo{ID: r.ID, Top: r.Path, CommonDir: filepath.Join(r.Path, ".git")}
+		}
+	}
 	if repoInfo != nil && len(tr.Snapshots) > 0 {
 		r, err := snapshot.Discover(repoInfo.Top)
 		if err != nil {
@@ -288,19 +293,30 @@ func (in *Ingester) redactTrace(tr *model.Trace) {
 
 // storedPayload keeps hook events small and free of secrets: large tool
 // responses are truncated before the event is stored.
+// contentFields are the payload fields that can hold code, output or
+// secrets. IDs and paths stay as they are, so stored events still join with
+// new spool events and with the transcript.
+var contentFields = []string{"tool_input", "tool_response", "prompt", "last_assistant_message", "error", "message"}
+
+// storedPayload keeps hook events small and free of secrets: content fields
+// are truncated and redacted before the event is stored.
 func (in *Ingester) storedPayload(payload string) string {
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(payload), &m); err != nil {
 		return in.redactor.String(redact.Truncate(payload, in.Cfg.Capture.MaxOutputBytes))
 	}
-	for _, k := range []string{"tool_response", "tool_input", "last_assistant_message", "prompt", "error"} {
-		if v, ok := m[k]; ok && len(v) > in.Cfg.Capture.MaxOutputBytes {
-			b, _ := json.Marshal(redact.Truncate(string(v), in.Cfg.Capture.MaxOutputBytes))
-			m[k] = b
+	for _, k := range contentFields {
+		v, ok := m[k]
+		if !ok {
+			continue
 		}
+		if len(v) > in.Cfg.Capture.MaxOutputBytes {
+			v, _ = json.Marshal(redact.Truncate(string(v), in.Cfg.Capture.MaxOutputBytes))
+		}
+		m[k] = in.redactor.JSON(v)
 	}
 	b, _ := json.Marshal(m)
-	return string(in.redactor.JSON(b))
+	return string(b)
 }
 
 func dropEmptyHumanEdits(tr *model.Trace) {

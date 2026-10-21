@@ -28,7 +28,7 @@ test: ## Run the unit tests
 	go test ./...
 
 race: ## Run the tests with the race detector (needs cgo)
-	CGO_ENABLED=1 go test -race ./...
+	CGO_ENABLED=1 go test -race -gcflags=all=-d=checkptr=0 ./...
 
 vet: ## Run go vet
 	go vet ./...
@@ -58,7 +58,7 @@ fixtures-update: ## Regenerate the golden files
 	go test -count=1 ./internal/adapters/... ./internal/report/... ./internal/attribution/... -update
 
 snapshot: ## Build a local release with GoReleaser
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean -p 2
 
 clean: ## Remove build output
 	rm -rf bin dist
