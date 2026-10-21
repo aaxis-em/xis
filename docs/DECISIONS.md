@@ -186,7 +186,7 @@ This log records each decision that the specification does not settle. Each entr
 ## D31. No temperature for Anthropic models
 
 - **Context:** Section 12.2 asks for temperature 0. Current Claude models (for example Claude Sonnet 5.5) reject a non-default `temperature` with a 400 error.
-- **Choice:** The Anthropic provider sends no `temperature`. The OpenAI-compatible provider sends `temperature: 0`. Repeatable output comes from the response cache.
+- **Choice:** The Anthropic provider sends no `temperature`. The OpenAI-compatible provider sends `temperature: 0`, and drops it if the server rejects it (D51). Repeatable output comes from the response cache.
 - **Why:** A request that the API rejects gives no analysis at all.
 
 ## D32. Refusals
@@ -302,3 +302,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `TestLargeChangeIsFast` checks the 2,000-hunk budget with a wall clock. The race detector makes code 5 to 10 times slower, and CI runners are slow.
 - **Choice:** The test skips itself when the race detector is on. `make test` still runs it.
 - **Why:** Under the race detector, the test measures the detector and not xis.
+
+## D51. Request fields that a server rejects
+
+- **Context:** OpenAI-compatible servers do not accept the same fields. Some reject a strict JSON schema or each `response_format`. Some reasoning models reject `temperature: 0` and `max_tokens`. Free tiers often send HTTP 429.
+- **Choice:** After HTTP 400 or 422, xis reads the error message. If the message names a field, xis changes that field and sends the request again. The JSON format goes from a strict schema to a schema, to JSON mode, to no format. Without a schema format, the schema goes into the system prompt. After HTTP 429 or 5xx, xis waits and tries again, up to 3 times. The provider keeps the changes for its next requests.
+- **Why:** One fixed request shape fails on many servers, and the user cannot fix that in the config. xis checks the JSON of each reply and asks again once, so a weaker format still gives valid output. xis does not change a request for other errors, so a real error stays visible.

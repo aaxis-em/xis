@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/aaxis-em/xis/internal/config"
@@ -205,44 +206,35 @@ func (c *Client) CompleteJSON(ctx context.Context, req Request, out any) (Respon
 }
 
 func decodeStrict(text string, out any) error {
-	text = stripFence(text)
+	text = extractJSON(text)
 	if text == "" {
 		return errors.New("empty response")
 	}
 	return json.Unmarshal([]byte(text), out)
 }
 
-func stripFence(s string) string {
-	b := []byte(s)
-	for len(b) > 0 && (b[0] == ' ' || b[0] == '\n' || b[0] == '\r' || b[0] == '\t') {
-		b = b[1:]
+// extractJSON removes what models put around the JSON object: a reasoning
+// block, a code fence or a sentence before or after it.
+func extractJSON(s string) string {
+	for _, tag := range []string{"</think>", "</thinking>"} {
+		if i := strings.LastIndex(s, tag); i >= 0 {
+			s = s[i+len(tag):]
+		}
 	}
-	s = string(b)
-	if len(s) > 3 && s[:3] == "```" {
-		if i := indexByte(s, '\n'); i >= 0 {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		if i := strings.IndexByte(s, '\n'); i >= 0 {
 			s = s[i+1:]
 		}
-		if j := lastIndex(s, "```"); j >= 0 {
+		if j := strings.LastIndex(s, "```"); j >= 0 {
 			s = s[:j]
+		}
+		s = strings.TrimSpace(s)
+	}
+	if s != "" && s[0] != '{' && s[0] != '[' {
+		if i, j := strings.IndexByte(s, '{'), strings.LastIndexByte(s, '}'); i >= 0 && j > i {
+			s = s[i : j+1]
 		}
 	}
 	return s
-}
-
-func indexByte(s string, c byte) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == c {
-			return i
-		}
-	}
-	return -1
-}
-
-func lastIndex(s, sub string) int {
-	for i := len(s) - len(sub); i >= 0; i-- {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }

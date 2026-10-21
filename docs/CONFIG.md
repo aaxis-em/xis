@@ -84,6 +84,42 @@ api_key_env = ""
 max_usd_per_change = 0
 ```
 
+### Other OpenAI-compatible servers
+
+The `openaicompat` provider works with each server that has the OpenAI chat completions API. Set `model` to a name from the model list of the server. Set `api_key_env` to the variable that holds your key.
+
+| Server | `base_url` |
+| --- | --- |
+| OpenAI | `https://api.openai.com/v1` |
+| Groq | `https://api.groq.com/openai/v1` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` |
+| OpenRouter | `https://openrouter.ai/api/v1` |
+| Ollama, on your computer | `http://localhost:11434/v1` |
+| LM Studio, on your computer | `http://localhost:1234/v1` |
+
+Example for Groq:
+
+```toml
+[llm]
+provider = "openaicompat"
+base_url = "https://api.groq.com/openai/v1"
+model = "MODEL-NAME"
+api_key_env = "GROQ_API_KEY"
+price_input_per_mtok = 0
+price_output_per_mtok = 0
+```
+
+The default prices are the prices of Claude. For a different provider, set the two price keys. Otherwise the cost guard uses wrong values. For a free tier, set both keys to 0.
+
+Servers do not all accept the same request fields. xis adapts to the server:
+
+- **JSON format:** xis first asks for a strict JSON schema. If the server rejects it, xis tries a schema that is not strict, then the JSON mode, then no format. Without a schema format, xis puts the schema in the system prompt.
+- **Temperature:** xis sends `temperature: 0`. If the server rejects it, xis sends no temperature.
+- **Token limit:** if the server asks for `max_completion_tokens` in place of `max_tokens`, xis uses it.
+- **Rate limits:** after HTTP 429 or a server error, xis waits and tries again, up to 3 times. It obeys the `Retry-After` header, up to 1 minute.
+
+xis keeps what it learns about a server until the command ends. xis also removes a reasoning block (`<think>`) and text around the JSON object before it reads a reply.
+
 To turn off the LLM for one command, set `XIS_LLM_PROVIDER=none`.
 
 ## `[redact]`

@@ -92,7 +92,7 @@ With an LLM, `xis analyze` and `xis ask` add intent items, better review units, 
 - An agent claim must be an exact quote of agent text near the edit. xis marks it `verified` only if the record proves it.
 - xis caches each response and stops at the cost limit `llm.max_usd_per_change` (default 0.50 USD).
 
-The default provider is `auto`: Anthropic if `ANTHROPIC_API_KEY` is set, else none. An OpenAI-compatible server, for example Ollama, also works. To turn off the LLM, run `xis config set llm.provider none`. For one command, set `XIS_LLM_PROVIDER=none`.
+The default provider is `auto`: Anthropic if `ANTHROPIC_API_KEY` is set, else none. Each OpenAI-compatible server also works, for example OpenAI, Groq, Gemini, OpenRouter or Ollama. See [docs/CONFIG.md](docs/CONFIG.md). To turn off the LLM, run `xis config set llm.provider none`. For one command, set `XIS_LLM_PROVIDER=none`.
 
 ## Privacy
 
