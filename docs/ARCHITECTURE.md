@@ -23,6 +23,9 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 | `internal/attribution` | Changes, hunks, provenance, change types and review units. |
 | `internal/rules` | The rules engine, the 25 rules and the scope inference. |
 | `internal/tui` | The review UI (bubbletea). |
+| `internal/llm` | The provider interface (anthropic, openaicompat, mock), the cache and the budget guard. |
+| `internal/analysis` | Intent, grouping, hunk explanations, the citation validator and the verification badges. The prompts are in `internal/analysis/prompts`. |
+| `internal/qa` | The grounded answers of `xis ask`. |
 | `internal/notes` | The signing key and (later) the git notes. |
 | `internal/model` | The canonical types. |
 | `internal/store` | The SQLite database and the migrations. |
@@ -273,3 +276,15 @@ The content hash of a hunk is the Agent Trace range hash: `murmur3:` and 8 hex d
 The review UI is a bubbletea program in `internal/tui`. The command `xis review` computes the change, runs the rules and gives the UI one `Data` value. The UI does not read the database. It calls back to store the status of a unit and to ask a question.
 
 The UI must stay fast with 2,000 hunks. It renders only the visible rows of each list. It highlights a hunk with chroma only when the hunk is on the screen, and it keeps the result in a cache.
+
+## LLM layer
+
+The LLM layer is optional. Capture, attribution, the rules, `xis why` and the pre-commit gate never use it.
+
+All tasks use one `llm.Client`. The client checks the cache, then the budget guard, then calls the provider. It asks for JSON that matches a schema. If the response is not valid JSON, it asks again one time.
+
+The evidence pack (`analysis.Pack`) gives each step, hunk and intent item a short alias, for example `s12`, `h3` and `i1`. The LLM cites the aliases. The validator maps them back to the real IDs and deletes each sentence without a valid citation. Thus the stored text has only real IDs that exist in the change.
+
+For a long session (more than 60,000 characters of steps), xis first asks for a one-sentence summary of each step. Later tasks use the summaries for steps that are not near the hunk.
+
+The prompts are Go constants with a version, for example `rationale-v1`. The version is part of the cache key, so a changed prompt never reuses old responses.

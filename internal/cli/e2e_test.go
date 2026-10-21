@@ -25,6 +25,8 @@ type scenario struct {
 	repo       string
 	session    string
 	transcript string
+	extraSay   string
+	readOutput string
 }
 
 func newScenario(t *testing.T) *scenario {
@@ -135,7 +137,10 @@ func runCalcScenario(s *scenario) {
 	s.hook("SessionStart", map[string]any{"source": "startup"})
 	s.prompt("Fix the Add function in calc.go and make the tests pass.")
 	s.say("The bug is in Add: it subtracts. I will make it add.")
-	s.tool("t1-read", "Read", map[string]any{"file_path": filepath.Join(s.repo, "calc.go")}, nil, "", 0)
+	if s.extraSay != "" {
+		s.say(s.extraSay)
+	}
+	s.tool("t1-read", "Read", map[string]any{"file_path": filepath.Join(s.repo, "calc.go")}, nil, s.readOutput, 0)
 	s.tool("t2-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "calc.go"), "old_string": "a - b", "new_string": "a + b"},
 		func() { s.write("calc.go", calcFixed) }, "", 0)
 	s.tool("t3-bash", "Bash", map[string]any{"command": "sed -i 's/1.0/1.1/' util.go"},

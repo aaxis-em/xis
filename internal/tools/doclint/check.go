@@ -56,7 +56,7 @@ var passiveExceptions = map[string]bool{
 	"allowed": true, "changed": true, "deleted": true,
 	"limited": true, "shared": true, "tracked": true, "untracked": true,
 	"reviewed": true, "unreviewed": true, "understood": true, "questioned": true,
-	"related": true, "interested": true, "expected": true, "fixed": true,
+	"related": true, "interested": true, "untrusted": true, "trusted": true, "expected": true, "fixed": true,
 }
 
 func Check(text string) []Warning {

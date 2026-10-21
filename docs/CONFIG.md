@@ -58,3 +58,30 @@ severity = { DEPENDENCY_CHANGED = "high" }
 [scope]
 paths = ["internal/auth/", "docs/"]
 ```
+
+## `[llm]`
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `provider` | string | `auto` | `auto`, `anthropic`, `openaicompat` or `none`. `auto` means `anthropic` if the variable in `api_key_env` is set, else `none`. |
+| `model` | string | `claude-sonnet-5-5` | The model name for the provider. |
+| `base_url` | string | `""` | The API URL. Necessary for `openaicompat`, for example `http://localhost:11434/v1` for Ollama. |
+| `api_key_env` | string | `ANTHROPIC_API_KEY` | The environment variable that holds the API key. |
+| `max_usd_per_change` | float (USD) | `0.50` | xis stops the analysis of one change at this estimated cost. 0 turns off the guard. |
+| `send_code` | bool | `true` | If false, xis sends only metadata, paths and agent text, never file contents or tool output. |
+| `price_input_per_mtok` | float (USD) | `3.0` | The input price per 1 million tokens, for the cost estimate. |
+| `price_output_per_mtok` | float (USD) | `15.0` | The output price per 1 million tokens, for the cost estimate. |
+| `max_tokens` | int (tokens) | `4096` | The maximum response size when a task does not set one. |
+
+Example for Ollama:
+
+```toml
+[llm]
+provider = "openaicompat"
+base_url = "http://localhost:11434/v1"
+model = "qwen3-coder"
+api_key_env = ""
+max_usd_per_change = 0
+```
+
+To turn off the LLM for one command, set `XIS_LLM_PROVIDER=none`.

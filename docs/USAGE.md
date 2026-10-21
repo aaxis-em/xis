@@ -235,3 +235,47 @@ The keys are:
 xis stores the status of each unit in the database. The status stays when you open the review again.
 
 Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact.
+
+## `xis analyze`
+
+The command runs the LLM analysis of a change. It needs an LLM provider (see [CONFIG.md](CONFIG.md)). It takes the same change options as `xis flags`.
+
+```console
+$ xis analyze
+model claude-sonnet-5-5 · 5 calls · 0 cached · estimated $0.0412
+intent items: 1
+  #1 [addressed] Fix the Add function in calc.go
+review units: 2 (LLM)
+  1 Fix addition
+  2 Update the Add test
+hunk explanations: 4 of 4 hunks
+```
+
+The analysis has four tasks:
+
+1. Intent: the things that the user asked for. The sources are the prompts, the follow-up prompts, the plans and the todo lists. The agent's own summaries are never a source.
+2. Grouping: the review units. Every hunk must be in exactly one unit. Otherwise xis keeps the fixed grouping.
+3. Hunk explanation: a verbatim agent claim, a plain explanation, the evidence and the intent items of each hunk.
+4. Intent status: `addressed`, `partial` or `unaddressed` for each intent item.
+
+xis checks each result before it stores it:
+
+- Every sentence of an explanation must cite a valid `[step:ID]` or `[hunk:ID]`. xis deletes the other sentences. If no sentence stays, xis shows "No evidence-backed explanation."
+- An agent claim must be an exact quote from an agent step near the edit. Otherwise xis drops it.
+- An agent claim is `verified` only if xis checked it against the record. In v1, xis checks claims about test results and about edited files. All other claims are `unverified`.
+
+xis caches each response in `~/.local/share/xis/cache/llm`. A second run of the same analysis costs nothing. The analysis stops when the estimated cost gets to `llm.max_usd_per_change`.
+
+## `xis ask`
+
+The command answers a question about a change from the session record. Every sentence of the answer cites a step or a hunk.
+
+```console
+$ xis ask "Why did the agent change the test?"
+The test expected the old, wrong sum, so the agent changed the test after the failing run [step:01M5CTQV4E8Y0J5Q3W2K7N1B6D].
+
+citations:
+  [step:01M5CTQV4E8Y0J5Q3W2K7N1B6D] step 11 The test expects the old value. I will update the test.
+```
+
+If the record has no answer, the answer is "Not in the session record." In `xis review`, press `a` to ask. Press `tab` to select a citation and `enter` to go to it.

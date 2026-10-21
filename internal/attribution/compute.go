@@ -289,6 +289,7 @@ func (e *Engine) Compute(opts Options) (*Result, error) {
 		return nil, err
 	}
 	res.Units = GroupDeterministic(res.Change.ID, res.Hunks)
+	e.reuseLLMUnits(res)
 	return res, e.save(res)
 }
 
@@ -515,4 +516,47 @@ func (r *Result) HunkAt(file string, line int) (model.Hunk, bool) {
 		}
 	}
 	return model.Hunk{}, false
+}
+
+// reuseLLMUnits keeps a stored LLM grouping when the change still has exactly
+// the same hunks; otherwise the fixed grouping replaces it.
+func (e *Engine) reuseLLMUnits(res *Result) {
+	units, err := e.Store.ListReviewUnits(res.Change.ID)
+	if err != nil {
+		return
+	}
+	llmUnits := map[string]model.ReviewUnit{}
+	for _, u := range units {
+		if u.Source == "llm" {
+			llmUnits[u.ID] = u
+		}
+	}
+	if len(llmUnits) == 0 {
+		return
+	}
+	old, err := e.Store.ListHunks(res.Change.ID)
+	if err != nil || len(old) != len(res.Hunks) {
+		return
+	}
+	assign := map[string]string{}
+	for _, h := range old {
+		if _, ok := llmUnits[h.ReviewUnitID]; !ok {
+			return
+		}
+		assign[h.ID] = h.ReviewUnitID
+	}
+	for _, h := range res.Hunks {
+		if _, ok := assign[h.ID]; !ok {
+			return
+		}
+	}
+	for i := range res.Hunks {
+		res.Hunks[i].ReviewUnitID = assign[res.Hunks[i].ID]
+	}
+	res.Units = res.Units[:0]
+	for _, u := range units {
+		if u.Source == "llm" {
+			res.Units = append(res.Units, u)
+		}
+	}
 }

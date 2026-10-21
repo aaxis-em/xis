@@ -182,3 +182,39 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Intent items come from the LLM (Section 12). Without an LLM, the UNITS pane has no intent items.
 - **Choice:** Without intent items, the pane shows the user prompts of the session under the title PROMPTS.
 - **Why:** The prompts are the deterministic source of the intent. The pane never shows an invented status.
+
+## D31. No temperature for Anthropic models
+
+- **Context:** Section 12.2 asks for temperature 0. Current Claude models (for example Claude Sonnet 5.5) reject a non-default `temperature` with a 400 error.
+- **Choice:** The Anthropic provider sends no `temperature`. The OpenAI-compatible provider sends `temperature: 0`. Repeatable output comes from the response cache.
+- **Why:** A request that the API rejects gives no analysis at all.
+
+## D32. Refusals
+
+- **Context:** A model can decline a request (`stop_reason: refusal`). The API has a server-side fallback feature for some models.
+- **Choice:** xis reports a refusal as an error of the task. It does not use the fallback feature. The other tasks continue.
+- **Why:** `llm.model` is free. The fallback feature works only with some models and needs a beta header. A failed task never changes the deterministic results.
+
+## D33. Short aliases in prompts
+
+- **Context:** ULIDs are 26 characters. An LLM can copy them wrong.
+- **Choice:** The prompts use aliases such as `s12` and `h3`. The validator maps them to the real IDs.
+- **Why:** Short IDs cost fewer tokens. An alias that the LLM invents does not map to any ID, so the validator removes its citation.
+
+## D34. Agent claims only from the same actor
+
+- **Context:** Section 12.3 allows a claim from an assistant or reasoning step. The step must be a provenance step of the hunk or one of the 3 steps before it.
+- **Choice:** The claim step must belong to the same agent actor as the provenance step. A hunk from a `human_edit` step has no agent claim.
+- **Why:** The end-to-end test showed an agent message quoted as the claim of a human edit. That is wrong attribution.
+
+## D35. Explanations per review unit
+
+- **Context:** Section 12.3 asks for a rationale per hunk.
+- **Choice:** xis sends the hunks of one review unit together, at most 6 hunks per call, with the context steps of each hunk. The result is still one rationale per hunk.
+- **Why:** The hunks of a unit share context. One call for each hunk costs more and gives the same result.
+
+## D36. LLM grouping after a new computation
+
+- **Context:** `xis review` and `xis flags` compute the change again, with the fixed grouping.
+- **Choice:** If the stored units of the change came from the LLM and the change has exactly the same hunks, xis keeps the LLM units. Otherwise the fixed grouping replaces them.
+- **Why:** The LLM grouping is valid only for the hunks that it saw.
