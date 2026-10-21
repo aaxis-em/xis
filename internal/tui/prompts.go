@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
@@ -80,9 +79,7 @@ func (m *Model) selectPrompt(i int) {
 	if ui, hi, ok := findHunk(m.units, func(h model.Hunk) bool { return h.ID == cur.ID }); ok {
 		m.unit, m.hunk = ui, hi
 	}
-	if t, ok := m.curTurn(); ok {
-		m.status = fmt.Sprintf("prompt #%d: %s", t.prompt.Seq, oneLine(t.prompt.Text, 80))
-	} else {
+	if _, ok := m.curTurn(); !ok {
 		m.status = "all prompts"
 	}
 }

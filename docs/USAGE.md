@@ -234,7 +234,7 @@ The UI has three panes:
 | DIFF | The current hunk with syntax colors, and the flags of the hunk. |
 | WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
 
-By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
+By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A panel under the panes shows the full text of the prompt. It uses at most half of the height. Press `i` to read a longer prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
 
 The layout depends on the terminal width:
 
@@ -253,6 +253,7 @@ The keys are:
 | `enter` | Expand: from UNITS to DIFF, from DIFF to WHY. |
 | `[` / `]` | Go to the previous or the next review unit. |
 | `p` / `P` | Show only the changes of the next or the previous prompt. After the last prompt, `p` shows all prompts again. |
+| `i` | Show the full text of the selected prompt. |
 | `g` / `G` | Go to the top or the bottom. |
 | `n` / `N` | Go to the next or the previous flag. |
 | `/` | Search the file paths and the hunks. |

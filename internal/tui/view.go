@@ -56,7 +56,7 @@ func (m *Model) footer() string {
 		return m.st.footer.Render(fit(" "+m.status, m.width))
 	}
 	keys := map[viewKind]string{
-		viewMain:     " j/k move  tab pane  p/P prompt  enter expand  u understood  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
+		viewMain:     " j/k move  tab pane  p/P prompt  i full prompt  enter expand  u understood  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
 		viewTimeline: " j/k move  enter open step  g/G top/bottom  esc back  q back",
 		viewStep:     " j/k scroll  enter jump to hunk  esc back",
 		viewFlags:    " j/k move  enter jump to hunk  esc back",
@@ -90,7 +90,10 @@ func join(cols ...[]string) []string {
 }
 
 func (m *Model) viewMain() []string {
-	h := m.bodyHeight()
+	return append(m.panes(m.mainHeight()), m.promptPanel()...)
+}
+
+func (m *Model) panes(h int) []string {
 	switch m.layout() {
 	case 3:
 		diffW := m.width - unitsWidth - whyWidth - 2
@@ -110,6 +113,26 @@ func (m *Model) viewMain() []string {
 		return m.whyPane(m.width, h)
 	}
 	return m.unitsPane(m.width, h)
+}
+
+// promptPanel shows the selected prompt in full under the panes, in at most
+// half of the height. "i" opens a longer prompt on its own screen.
+func (m *Model) promptPanel() []string {
+	t, ok := m.curTurn()
+	if !ok {
+		return nil
+	}
+	title := fmt.Sprintf("── PROMPT #%d (%d of %d) ", t.prompt.Seq, m.prompt+1, len(m.turns))
+	lines := []string{m.st.focusTitle.Render(title) + m.st.dim.Render(strings.Repeat("─", max(m.width-lipgloss.Width(title), 0)))}
+	text := wrap(t.prompt.Text, m.width-2)
+	if limit := max(m.bodyHeight()/2, 4) - 1; len(text) > limit {
+		more := len(text) - limit + 1
+		text = append(text[:limit-1], m.st.dim.Render(fmt.Sprintf("… %d more lines · press i for the full prompt", more)))
+	}
+	for _, l := range text {
+		lines = append(lines, fit(" "+l, m.width))
+	}
+	return lines
 }
 
 func statusGlyph(s string) string {
@@ -429,6 +452,7 @@ func (m *Model) viewHelp() []string {
 		{"enter", "expand: units → diff → why"},
 		{"[ / ]", "previous / next review unit"},
 		{"p / P", "show only the changes of the next / previous prompt, then all again"},
+		{"i", "read the full text of the selected prompt"},
 		{"g / G", "top / bottom"},
 		{"n / N", "next / previous flag"},
 		{"/", "search the hunks"},

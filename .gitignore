@@ -4,3 +4,4 @@
 *.out
 .xis.local.toml
 /completions/
+.claude

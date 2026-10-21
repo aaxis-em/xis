@@ -9,7 +9,7 @@ import (
 var actions = map[string]string{
 	"down": "j", "up": "k", "pane": "tab", "expand": "enter", "understood": "u", "question": "x",
 	"timeline": "t", "flags": "f", "ask": "a", "editor": "o", "help": "?", "quit": "q", "search": "/",
-	"next_flag": "n", "prev_flag": "N", "next_prompt": "p", "prev_prompt": "P", "top": "g", "bottom": "G", "prev_unit": "[", "next_unit": "]",
+	"next_flag": "n", "prev_flag": "N", "next_prompt": "p", "prev_prompt": "P", "full_prompt": "i", "top": "g", "bottom": "G", "prev_unit": "[", "next_unit": "]",
 }
 
 func Actions() []string {

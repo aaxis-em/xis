@@ -216,6 +216,8 @@ func (m *Model) hunksOfStep(stepID string) []string {
 
 func (m *Model) bodyHeight() int { return max(m.height-2, 3) }
 
+func (m *Model) mainHeight() int { return max(m.bodyHeight()-len(m.promptPanel()), 3) }
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -460,6 +462,11 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		default:
 			m.whyScroll = 1 << 20
 		}
+	case "i":
+		if t, ok := m.curTurn(); ok {
+			m.stepID, m.stepScroll = t.prompt.ID, 0
+			m.prev, m.view = viewMain, viewStep
+		}
 	case "p":
 		m.selectPrompt(m.prompt + 1)
 	case "P":
@@ -509,7 +516,7 @@ func (m *Model) move(d int) {
 			return
 		}
 		_, lines := parseHunk(h)
-		visible := m.bodyHeight() - 3
+		visible := m.mainHeight() - 3
 		if d > 0 && m.diffScroll+visible < len(lines)+2 {
 			m.diffScroll += 3
 			return

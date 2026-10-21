@@ -98,3 +98,42 @@ func TestPromptFilterDimsOtherLines(t *testing.T) {
 		t.Errorf("line of the selected prompt changed: %q", got[3])
 	}
 }
+
+func TestPromptPanelShowsTheFullPrompt(t *testing.T) {
+	d := twoPromptData()
+	long := "Fix all of these:\n" + strings.Repeat("- one more item that the agent must fix in this change\n", 30) + "LAST LINE"
+	sd := d.Sessions["s1"]
+	sd.Steps[4].Text = long
+	m := New(d, Callbacks{}, false)
+	m.width, m.height = 160, 40
+
+	m.Update(key("p"))
+	view := stripANSI(m.View())
+	if !strings.Contains(view, "PROMPT #1 (1 of 2)") || !strings.Contains(view, "Fix the login timeout") {
+		t.Errorf("panel of prompt #1 missing:\n%s", view)
+	}
+	if n := strings.Count(m.View(), "\n") + 1; n != m.height {
+		t.Errorf("view has %d lines, want %d", n, m.height)
+	}
+
+	m.Update(key("p"))
+	view = stripANSI(m.View())
+	if !strings.Contains(view, "Fix all of these:") || !strings.Contains(view, "press i for the full prompt") || strings.Contains(view, "LAST LINE") {
+		t.Errorf("long prompt not cut with a hint:\n%s", view)
+	}
+	if n := strings.Count(m.View(), "\n") + 1; n != m.height {
+		t.Errorf("view has %d lines, want %d", n, m.height)
+	}
+
+	m.Update(key("i"))
+	for i := 0; i < 40; i++ {
+		m.Update(key("j"))
+	}
+	if view := stripANSI(m.View()); !strings.Contains(view, "LAST LINE") {
+		t.Errorf("full prompt view lacks the end:\n%s", view)
+	}
+	m.Update(key("esc"))
+	if _, _, _, v := m.Selection(); v != int(viewMain) || m.prompt != 1 {
+		t.Errorf("esc: view %d, prompt %d", v, m.prompt)
+	}
+}
