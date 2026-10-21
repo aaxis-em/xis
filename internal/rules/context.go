@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/aaxis-em/xis/internal/adapters"
@@ -131,10 +132,31 @@ func (c *Context) IsSourceFile(path string) bool {
 // RelPath turns an absolute tool path into a repository path.
 func (c *Context) RelPath(p string) string {
 	p = strings.TrimSpace(p)
-	if c.RepoTop != "" && strings.HasPrefix(p, c.RepoTop+"/") {
-		return strings.TrimPrefix(p, c.RepoTop+"/")
+	if c.RepoTop != "" && filepath.IsAbs(p) {
+		for _, q := range []string{p, resolveExisting(p)} {
+			if strings.HasPrefix(q, c.RepoTop+"/") {
+				return strings.TrimPrefix(q, c.RepoTop+"/")
+			}
+		}
 	}
 	return strings.TrimPrefix(p, "./")
+}
+
+// resolveExisting resolves symlinks in the longest existing prefix of p, so
+// that a deleted file under /var still maps to git's /private/var top.
+func resolveExisting(p string) string {
+	dir, rest := p, ""
+	for {
+		if r, err := filepath.EvalSymlinks(dir); err == nil {
+			return filepath.Join(r, rest)
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(dir), rest)
+		dir = parent
+	}
 }
 
 func (c *Context) agentStep(d *store.SessionData, s model.Step) bool {

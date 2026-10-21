@@ -290,3 +290,15 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `github.com/spaolacci/murmur3` v1.1.0 uses pointer arithmetic that the Go `checkptr` check rejects. `go test -race` turns on `checkptr`, so the hash tests crash there.
 - **Choice:** `make race` and CI run `go test -race -gcflags=all=-d=checkptr=0`. The race detector stays on.
 - **Why:** Section 3 names this library for Agent Trace compatibility. The check fails on a pattern in the library, not on a data race. xis code has no unsafe pointer use.
+
+## D49. Tool paths under a symbolic link
+
+- **Context:** git gives the repository top with all symbolic links resolved. The agent can give the same file through a symbolic link. On macOS, `/var` is a link to `/private/var`, so the paths of a repository in a temporary directory do not agree.
+- **Choice:** If a tool path is not under the repository top, the rules resolve the links of the longest existing part of the path. Then they compare again.
+- **Why:** Otherwise `OUT_OF_SCOPE` flags files in the repository. The path of a deleted file must also map, so xis cannot resolve only the full path. The test `TestRelPathThroughSymlink` covers this case.
+
+## D50. Timing test under the race detector
+
+- **Context:** `TestLargeChangeIsFast` checks the 2,000-hunk budget with a wall clock. The race detector makes code 5 to 10 times slower, and CI runners are slow.
+- **Choice:** The test skips itself when the race detector is on. `make test` still runs it.
+- **Why:** Under the race detector, the test measures the detector and not xis.

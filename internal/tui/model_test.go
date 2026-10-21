@@ -171,6 +171,9 @@ func TestViewsAndFlags(t *testing.T) {
 }
 
 func TestLargeChangeIsFast(t *testing.T) {
+	if raceEnabled {
+		t.Skip("timing budget does not hold under the race detector")
+	}
 	m := New(testData(200, 10), Callbacks{}, true)
 	m.width, m.height = 160, 50
 	start := time.Now()
