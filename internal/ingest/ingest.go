@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/capture"
 	"github.com/aaxis-em/xis/internal/config"
@@ -329,10 +330,10 @@ func (in *Ingester) detectTests(tr *model.Trace) []model.TestRun {
 	var out []model.TestRun
 	for i := range tr.ToolCalls {
 		tc := &tr.ToolCalls[i]
-		if tc.Category != model.CatShell {
+		if tc.Category != model.CatShell && tc.Category != model.CatTest {
 			continue
 		}
-		cmd := claudecode.ToolCommand(tc.Input)
+		cmd := adapters.Command(tc.Input)
 		fw, ok := in.tests.Framework(cmd)
 		if !ok {
 			continue

@@ -633,9 +633,3 @@ func ToolPaths(input string) []string {
 	}
 	return out
 }
-
-func ToolCommand(input string) string {
-	var in toolInput
-	_ = json.Unmarshal([]byte(input), &in)
-	return in.Command
-}

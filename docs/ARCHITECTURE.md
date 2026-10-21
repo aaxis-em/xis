@@ -16,7 +16,9 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 | `internal/lockfile` | Advisory file locks (`flock`) for the spool and the snapshot chain. |
 | `internal/snapshot` | The shadow repository and the snapshots. |
 | `internal/capture` | The hook handler, the spool and the hook installation. |
+| `internal/adapters` | The shell command of a tool input, for all agents. |
 | `internal/adapters/claudecode` | The Claude Code hook payload and transcript formats. |
+| `internal/adapters/codex` | The Codex CLI rollout format and the `apply_patch` format. |
 | `internal/redact` | Secret detection (gitleaks rules, entropy, user patterns) and masking. |
 | `internal/testdetect` | Test files, test commands, test outcomes and manifest files. |
 | `internal/ingest` | The pipeline from the spool and the transcript to the database. |
@@ -297,3 +299,22 @@ The prompts are Go constants with a version, for example `rationale-v1`. The ver
 To sign, xis removes the field `sig`, writes the JSON with sorted keys, and signs those bytes with ed25519. The note holds the public key. To verify, xis does the same steps and checks the signature. Thus a note verifies after any change of whitespace or key order, but not after a change of a value.
 
 xis writes the note with `git notes --ref refs/notes/xis add -f`. This is the only write of xis to the user repository, together with the hooks that you install explicitly.
+
+## Codex import
+
+Codex CLI writes one JSONL rollout file for each session. Each line has `timestamp`, `type` and `payload`. xis reads these types and ignores the other types with a warning:
+
+| `type` | Content that xis uses |
+| --- | --- |
+| `session_meta` | `id`, `cwd`, `cli_version` and `git.commit_hash` (the base commit). |
+| `turn_context` | `model`. |
+| `response_item` | `message` (user and assistant text), `reasoning` (the summary text), `function_call`, `custom_tool_call` and `local_shell_call`, and their outputs, joined on `call_id`. |
+| `event_msg` | `token_count` (token totals), and `user_message` if no user message item exists. |
+
+The output of a tool call is a string. In some Codex versions, it is a JSON string with `output` and `metadata.exit_code`. In other versions, it starts with `Exit code: N`. xis reads both forms.
+
+An `apply_patch` call (as a custom tool, as a function, or through a shell command) contains a patch in the `*** Begin Patch` format. xis turns each file of the patch into an edit of the step.
+
+Codex CLI was not available when this adapter was built. The fixture in `testdata/fixtures/codex` is synthetic. It follows the `ResponseItem` definitions in the Codex source (`codex-rs/protocol/src/models.rs`).
+
+Imported sessions have no snapshots. To attribute a hunk line, xis looks for the last edit of the session that added a line with the same text (after whitespace normalization). Otherwise the line is unattributed.

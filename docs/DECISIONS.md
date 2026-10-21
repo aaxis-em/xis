@@ -236,3 +236,21 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The Agent Trace v0.1.0 specification has files, conversations and ranges. It does not say how to split lines into conversations.
 - **Choice:** Each file has one conversation for the AI lines of each session, one for human lines and one for unknown lines. An AI conversation has `model_id` as `provider/model`. A range is a run of consecutive added lines with the same source. The `version` field is `0.1`, because the schema needs `major.minor`. For the working tree, the record has no `vcs` object.
 - **Why:** The mapping uses only the specification fields. xis-specific data goes in `metadata` under the key `dev.xis`.
+
+## D40. Synthetic Codex fixture
+
+- **Context:** Section 9.3 asks to build the Codex parser from real rollout files. Codex CLI is not installed in the build environment.
+- **Choice:** The fixture is synthetic. It follows the `ResponseItem` definitions in the Codex source and the community descriptions of the format. The parser accepts the known output shapes of several Codex versions and warns on unknown line types.
+- **Why:** Section 9.3 allows this path. A real, scrubbed rollout can replace the fixture without code changes.
+
+## D41. Content match for imported sessions
+
+- **Context:** Imported sessions have no snapshots, so blame cannot find a step.
+- **Choice:** A hunk line belongs to the last `apply_patch` edit of the session that added a line with the same normalized text. No other fallback applies to imported sessions.
+- **Why:** Section 9.3 says that hunks that only shell commands could have made stay unattributed and are never guessed.
+
+## D42. Shared command extraction
+
+- **Context:** Claude Code puts a shell command in a string field. Codex puts it in an array such as `["bash", "-lc", "go test ./..."]`.
+- **Choice:** `internal/adapters.Command` reads all known forms. Test detection, the rules and the LLM evidence pack use it.
+- **Why:** The rules must see the same command for every agent.

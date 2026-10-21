@@ -3,7 +3,7 @@ package rules
 import (
 	"strings"
 
-	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/gitx"
@@ -147,7 +147,7 @@ func (c *Context) command(d *store.SessionData, stepID string) string {
 	if !ok {
 		return ""
 	}
-	return claudecode.ToolCommand(tc.Input)
+	return adapters.Command(tc.Input)
 }
 
 func testFailed(r model.TestRun) bool {

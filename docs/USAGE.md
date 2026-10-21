@@ -334,3 +334,23 @@ wrote trace.json
 ```
 
 For a commit range, `vcs.revision` is the target commit. For the working tree, the record has no `vcs` object, because the lines refer to no commit.
+
+## `xis import codex`
+
+The command imports a Codex CLI session from its rollout file. Codex writes the files under `~/.codex/sessions/YYYY/MM/DD/`. `CODEX_HOME` changes the directory.
+
+```console
+$ xis import codex --latest
+imported 01M5F0A1B2 (codex session 019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5b): 8 steps, 1 edits, 1 test runs (fidelity: imported)
+```
+
+| Option | Effect |
+| --- | --- |
+| `--latest` | Import the newest rollout. This is the default. |
+| `--path FILE` | Import one rollout file. |
+| `--since YYYY-MM-DD` | Import all rollouts changed on or after the date. |
+| `--base REF` | Use this base commit. The default is the commit in the rollout, else `HEAD`. |
+
+> **Caution:** Do not take imported attribution as exact. Codex has no hooks, so xis has no snapshots of the session.
+
+For an imported session, xis gives a hunk line to an `apply_patch` step only if that patch added a line with the same text. A line that only a shell command could have made stays unattributed, and `UNATTRIBUTED_CHANGE` flags its hunk. The report, the review UI and `xis why` show the fidelity `imported`.

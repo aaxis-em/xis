@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
@@ -264,7 +265,7 @@ func init() {
 					}
 				}
 				if hit == "" && (tc.Category == model.CatShell || tc.Category == model.CatTest) {
-					if m := secretInCmdRe.FindStringSubmatch(claudecode.ToolCommand(tc.Input)); m != nil {
+					if m := secretInCmdRe.FindStringSubmatch(adapters.Command(tc.Input)); m != nil {
 						hit = m[2]
 					}
 				}

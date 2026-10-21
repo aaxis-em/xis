@@ -300,6 +300,8 @@ func (e *Engine) commitExists(c string) bool {
 
 func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 	edits := map[string][]editRef{}
+	imported := map[string][]editRef{}
+	live := map[string][]editRef{}
 	for _, s := range res.Sessions {
 		es, err := e.Store.ListEdits(s.ID)
 		if err != nil {
@@ -307,6 +309,11 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 		}
 		for _, ed := range es {
 			edits[ed.FilePath] = append(edits[ed.FilePath], editRef{ed})
+			if s.Fidelity == model.FidelityImported {
+				imported[ed.FilePath] = append(imported[ed.FilePath], editRef{ed})
+			} else {
+				live[ed.FilePath] = append(live[ed.FilePath], editRef{ed})
+			}
 		}
 	}
 	for _, fp := range res.Files {
@@ -331,7 +338,7 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 			h.ID = model.StableID(zeroTime, res.Change.ID, fp.Path, "file")
 			h.ChangeType = ClassifyHunk(e.Tests, fp, nil)
 			res.Hunks = append(res.Hunks, h)
-			if step := lastEditStep(edits[fp.Path], res.StepSession); step != "" {
+			if step := lastEditStep(live[fp.Path], res.StepSession); step != "" {
 				res.Provenance = append(res.Provenance, model.HunkProvenance{HunkID: h.ID, StepID: step, Lines: 0})
 			} else {
 				res.Provenance = append(res.Provenance, model.HunkProvenance{HunkID: h.ID, StepID: model.Unattributed, Lines: 0})
@@ -364,8 +371,11 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string) error {
 						if s, ok := snapStep[blame[l.NewLine]]; ok {
 							step = s
 						}
-					} else if s := lastEditStep(edits[fp.Path], res.StepSession); s != "" {
+					} else if s := lastEditStep(live[fp.Path], res.StepSession); s != "" {
 						step = s
+					}
+					if step == model.Unattributed {
+						step = addedBy(imported[fp.Path], l.Text, res.StepSession)
 					}
 					lineSteps[l.NewLine] = step
 					counts[step]++
@@ -559,4 +569,23 @@ func (e *Engine) reuseLLMUnits(res *Result) {
 			res.Units = append(res.Units, u)
 		}
 	}
+}
+
+// addedBy attributes a line of an imported session by its content: the last
+// recorded edit that added a line with the same text. It never guesses: a
+// line that no recorded edit added stays unattributed.
+func addedBy(edits []editRef, text string, known map[string]string) string {
+	want := normalize(text)
+	for i := len(edits) - 1; i >= 0; i-- {
+		ed := edits[i]
+		if _, ok := known[ed.StepID]; !ok {
+			continue
+		}
+		for _, l := range strings.Split(ed.Patch, "\n") {
+			if strings.HasPrefix(l, "+") && !strings.HasPrefix(l, "+++") && normalize(l[1:]) == want {
+				return ed.StepID
+			}
+		}
+	}
+	return model.Unattributed
 }

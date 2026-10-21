@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
 )
@@ -133,7 +133,7 @@ func (p *Pack) StepBlock(id string, summary bool) string {
 			if tc.Output != "" {
 				b.WriteString("\noutput: " + clip(tc.Output, 1500))
 			}
-		} else if cmd := claudecode.ToolCommand(tc.Input); cmd != "" {
+		} else if cmd := adapters.Command(tc.Input); cmd != "" {
 			b.WriteString("\ncommand: " + clip(cmd, 500))
 		}
 		if tc.ExitCode != nil {
