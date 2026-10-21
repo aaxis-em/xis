@@ -157,7 +157,7 @@ patterns = ["internal-token-(\\w+)", "corp_[A-Z0-9]{16}"]
 | `theme` | string | `auto` | `auto`, `dark`, `light` or `none`. `none` turns off colors. `light` uses a syntax style for light terminals. `auto` reads the `COLORFGBG` environment variable, else it uses `dark`. xis never asks the terminal for its colors. |
 | `keymap` | map of action to key | `{}` | More keys for the actions of `xis review`. The default keys stay. |
 
-The keymap actions are `down`, `up`, `pane`, `expand`, `understood`, `question`, `timeline`, `flags`, `ask`, `editor`, `help`, `quit`, `search`, `next_flag`, `prev_flag`, `top`, `bottom`, `prev_unit` and `next_unit`.
+The keymap actions are `down`, `up`, `pane`, `expand`, `understood`, `question`, `timeline`, `flags`, `ask`, `editor`, `help`, `quit` and `search`. The other actions are `next_flag`, `prev_flag`, `top`, `bottom`, `prev_unit`, `next_unit`, `next_prompt` and `prev_prompt`.
 
 Example:
 

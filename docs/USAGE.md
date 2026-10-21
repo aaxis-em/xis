@@ -24,7 +24,7 @@ Most commands work on a change. These options select the change:
 
 | Option | Base | Target |
 | --- | --- | --- |
-| (none) | `HEAD` at the start of the latest session with a prompt | the working tree |
+| (none) | `HEAD` at the start of the latest active session with a prompt | the working tree |
 | `SESSION` | `HEAD` at the start of that session | the working tree |
 | `--staged` | `HEAD` | the index |
 | `--range A..B` | commit `A` | commit `B` |
@@ -174,7 +174,7 @@ Use the change options to select the change:
 
 | Option | Change |
 | --- | --- |
-| (none) | the latest session with a prompt against the working tree |
+| (none) | the latest active session with a prompt against the working tree |
 | `SESSION` | that session against the working tree |
 | `--staged` | `HEAD` against the index |
 | `--range A..B` | commit `A` against commit `B` |
@@ -230,9 +230,11 @@ The UI has three panes:
 
 | Pane | Content |
 | --- | --- |
-| UNITS | The review units in review order, their status (✔ understood, ? questioned) and their flags. Below them: the intent items, or the prompts if no LLM ran. |
+| UNITS | The review units in review order, their status (✔ understood, ? questioned) and their flags. Below them: the intent items if an LLM ran, and the prompts with the number of hunks of each prompt. |
 | DIFF | The current hunk with syntax colors, and the flags of the hunk. |
 | WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
+
+By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
 
 The layout depends on the terminal width:
 
@@ -250,6 +252,7 @@ The keys are:
 | `tab` | Focus the next pane. |
 | `enter` | Expand: from UNITS to DIFF, from DIFF to WHY. |
 | `[` / `]` | Go to the previous or the next review unit. |
+| `p` / `P` | Show only the changes of the next or the previous prompt. After the last prompt, `p` shows all prompts again. |
 | `g` / `G` | Go to the top or the bottom. |
 | `n` / `N` | Go to the next or the previous flag. |
 | `/` | Search the file paths and the hunks. |
@@ -266,7 +269,7 @@ xis stores the status of each unit in the database. The status stays when you op
 
 Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact. xis leaves out text that names a different file of the session and not the file of the hunk.
 
-A session that has no prompt, for example Claude Code opened and closed again, is never the default session. Give its ID to open it.
+The default session is the session with the latest activity that has a prompt. A long session that started first can thus be the default. A session that has no prompt, for example Claude Code opened and closed again, is never the default session. Give the ID of a session to open it.
 
 ## `xis analyze`
 

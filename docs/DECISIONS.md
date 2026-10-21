@@ -354,7 +354,7 @@ This log records each decision that the specification does not settle. Each entr
 ## D59. Default session
 
 - **Context:** A Claude Code session that a user opens and closes again has no prompt and no steps. It was the latest session, so `xis review` showed "none recorded" under PROMPTS. Its flags were the uncommitted work of other sessions.
-- **Choice:** Without a session argument, xis selects the latest session that has a prompt. If no session has a prompt, xis selects the latest session.
+- **Choice:** Without a session argument, xis selects the latest session that has a prompt. If no session has a prompt, xis selects the latest session. D66 changes "latest" to the latest activity.
 - **Why:** The user wants to review the last real work. An empty session has nothing to review.
 
 ## D60. No terminal query for the background color
@@ -386,3 +386,21 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** In a real session, `xis why` on a `store.go` line quoted an agent note about `main.go` as "agent text near this edit".
 - **Choice:** xis leaves out agent text that names another file of the session and not the file of the line. File names match as whole words. Text that names no file stays.
 - **Why:** Text about another file misleads the reviewer. Most agent text names no file, so the filter removes little.
+
+## D65. Review by prompt
+
+- **Context:** A session often has many prompts. The user wants to see the change of each prompt, and the total change as the default.
+- **Choice:** `p` and `P` cycle from all prompts through each prompt and back. A prompt filter shows the hunks that a step of the turn wrote. A turn is the prompt and the steps up to the next prompt. DIFF shows the added lines of other turns in grey. A jump to a hidden hunk shows all prompts again.
+- **Why:** The whole hunk stays visible, so the lines of a prompt keep their context. Line attribution already exists, so the filter needs no new data.
+
+## D66. Default session by activity
+
+- **Context:** A user worked in a long session that started the day before. A second Claude Code window started later and closed. `xis review` showed the second window, and the latest prompts of the user were missing.
+- **Choice:** The default session is the session with a prompt and the latest activity. The activity is the end time, or the start time for a session without an end time.
+- **Why:** The user reviews the work of the session that they used last, not the session that started last.
+
+## D67. Pasted text in a prompt
+
+- **Context:** Claude Code puts pasted text in `<pasted_content>` tags in the prompt. The PROMPTS list showed the tags in place of the text.
+- **Choice:** The adapter removes these tags from the prompt text. It compares the hook prompt and the transcript prompt after the same cleanup.
+- **Why:** The tags are not part of the instruction of the user.

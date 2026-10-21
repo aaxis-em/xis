@@ -258,7 +258,7 @@ A change has a base and a target. The table shows the change options.
 
 | Option | Base | Target | Sessions |
 | --- | --- | --- | --- |
-| (default) | `HEAD` at session start | the working tree | the given session or the latest session with a prompt |
+| (default) | `HEAD` at session start | the working tree | the given session or the latest active session with a prompt |
 | `--staged` | `HEAD` | the index | the sessions that started on `HEAD` |
 | `--range A..B` | `A` | `B` | the sessions that started on `A` or on a commit in `A..B` |
 | `--pr` | the merge base with the default branch | `HEAD` | as `--range` |

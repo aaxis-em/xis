@@ -80,8 +80,9 @@ type Result struct {
 var ErrNoSession = errors.New("no session found for this repository")
 
 // ResolveSession finds a session by xis ID, agent session ID or a prefix of
-// either. An empty id means the latest session of the repository that has a
-// prompt; a session that was opened and closed without one is skipped.
+// either. An empty id means the session of the repository with the latest
+// activity that has a prompt; a session that was opened and closed without
+// one is skipped. A long session that started first can be the latest one.
 func ResolveSession(st *store.Store, repoID, id string) (model.Session, error) {
 	sessions, err := st.ListSessions(repoID, 0)
 	if err != nil {
@@ -91,6 +92,13 @@ func ResolveSession(st *store.Store, repoID, id string) (model.Session, error) {
 		if len(sessions) == 0 {
 			return model.Session{}, ErrNoSession
 		}
+		active := func(s model.Session) time.Time {
+			if s.EndedAt.After(s.StartedAt) {
+				return s.EndedAt
+			}
+			return s.StartedAt
+		}
+		sort.SliceStable(sessions, func(i, j int) bool { return active(sessions[i]).After(active(sessions[j])) })
 		for _, s := range sessions {
 			if ok, err := st.HasPrompt(s.ID); err != nil {
 				return model.Session{}, err

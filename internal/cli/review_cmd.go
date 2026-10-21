@@ -20,7 +20,7 @@ func buildReviewData(st *store.Store, ca *changeAnalysis, llmOn bool) (*tui.Data
 	d := &tui.Data{
 		Flags: ca.Flags, Sessions: map[string]*store.SessionData{}, Provenance: map[string][]model.HunkProvenance{},
 		Rationales: map[string]model.Rationale{}, StepSession: res.StepSession, ActorKind: res.ActorKind,
-		LLMOn: llmOn, RepoTop: ca.Engine.Repo.Top,
+		LLMOn: llmOn, RepoTop: ca.Engine.Repo.Top, LineSteps: res.LineSteps,
 	}
 	for _, p := range res.Provenance {
 		d.Provenance[p.HunkID] = append(d.Provenance[p.HunkID], p)

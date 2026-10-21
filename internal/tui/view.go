@@ -56,7 +56,7 @@ func (m *Model) footer() string {
 		return m.st.footer.Render(fit(" "+m.status, m.width))
 	}
 	keys := map[viewKind]string{
-		viewMain:     " j/k move  tab pane  enter expand  u understood  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
+		viewMain:     " j/k move  tab pane  p/P prompt  enter expand  u understood  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
 		viewTimeline: " j/k move  enter open step  g/G top/bottom  esc back  q back",
 		viewStep:     " j/k scroll  enter jump to hunk  esc back",
 		viewFlags:    " j/k move  enter jump to hunk  esc back",
@@ -135,15 +135,19 @@ func intentGlyph(s string) string {
 }
 
 func (m *Model) unitsPane(w, h int) []string {
-	lines := []string{m.paneTitle("UNITS", paneUnits)}
-	if len(m.data.Units) == 0 {
+	title := "UNITS"
+	if t, ok := m.curTurn(); ok {
+		title = fmt.Sprintf("UNITS · prompt #%d", t.prompt.Seq)
+	}
+	lines := []string{m.paneTitle(title, paneUnits)}
+	if len(m.units) == 0 {
 		lines = append(lines, m.st.dim.Render("no changes"))
 	}
 	// Only the units around the selection are rendered.
 	listH := max(h/2, 3)
 	start := max(0, m.unit-listH+2)
-	for i := start; i < len(m.data.Units) && i < start+listH; i++ {
-		u := m.data.Units[i]
+	for i := start; i < len(m.units) && i < start+listH; i++ {
+		u := m.units[i]
 		marker := " "
 		if i == m.unit {
 			marker = "▸"
@@ -162,22 +166,31 @@ func (m *Model) unitsPane(w, h int) []string {
 		for i, it := range m.data.Intent {
 			lines = append(lines, fmt.Sprintf("%s #%d %s", intentGlyph(it.Status), i+1, oneLine(it.Text, w)))
 		}
+		lines = append(lines, "")
+	}
+	lines = append(lines, m.st.title.Render("PROMPTS (p/P)"))
+	if len(m.turns) == 0 {
+		lines = append(lines, m.st.dim.Render("none recorded"))
 	} else {
-		lines = append(lines, m.st.title.Render("PROMPTS"))
-		n := 0
-		for _, sd := range m.data.Sessions {
-			for _, s := range sd.Steps {
-				if s.Kind == model.StepUserMessage {
-					n++
-					lines = append(lines, fmt.Sprintf("· #%d %s", s.Seq, oneLine(s.Text, w)))
-				}
-			}
-		}
-		if n == 0 {
-			lines = append(lines, m.st.dim.Render("none recorded"))
+		lines = append(lines, m.promptRow(-1, "All prompts", len(m.data.hunks()), w))
+		for i, t := range m.turns {
+			lines = append(lines, m.promptRow(i, fmt.Sprintf("#%d %s", t.prompt.Seq, t.prompt.Text), t.hunks, w))
 		}
 	}
 	return block(lines, w, h, 0)
+}
+
+func (m *Model) promptRow(i int, text string, hunks int, w int) string {
+	marker := "  "
+	if i == m.prompt {
+		marker = "▸ "
+	}
+	count := fmt.Sprintf(" %d", hunks)
+	label := fit(marker+oneLine(text, w), w-len(count))
+	if i == m.prompt {
+		return m.st.sel.Render(label + count)
+	}
+	return label + m.st.dim.Render(count)
 }
 
 func (m *Model) diffPane(w, h int) []string {
@@ -189,7 +202,7 @@ func (m *Model) diffPane(w, h int) []string {
 	title := fmt.Sprintf("%s  [%s]  hunk %d/%d", hk.FilePath, hk.ChangeType, m.hunk+1, len(u.Hunks))
 	lines := []string{m.paneTitle(fit(title, w), paneDiff)}
 	header, _ := parseHunk(hk)
-	body := m.hl.render(hk, m.st)
+	body := m.dimOtherPrompts(hk, m.hl.render(hk, m.st))
 	content := []string{m.st.dim.Render(header)}
 	content = append(content, body...)
 	for _, f := range m.data.flagsForHunk(hk) {
@@ -415,6 +428,7 @@ func (m *Model) viewHelp() []string {
 		{"tab", "focus the next pane"},
 		{"enter", "expand: units → diff → why"},
 		{"[ / ]", "previous / next review unit"},
+		{"p / P", "show only the changes of the next / previous prompt, then all again"},
 		{"g / G", "top / bottom"},
 		{"n / N", "next / previous flag"},
 		{"/", "search the hunks"},

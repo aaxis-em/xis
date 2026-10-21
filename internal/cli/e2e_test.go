@@ -675,3 +675,31 @@ func TestE2EDefaultSessionSkipsSessionsWithoutPrompts(t *testing.T) {
 		t.Errorf("default session is not the one with prompts:\n%s %v", out, err)
 	}
 }
+
+func TestE2EDefaultSessionIsTheLatestActive(t *testing.T) {
+	s := newScenario(t)
+	long, longTranscript := s.session, s.transcript
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("First prompt of the long session.")
+	s.hook("Stop", map[string]any{"last_assistant_message": "ok"})
+
+	s.session, s.transcript = "e2e-short", filepath.Join(t.TempDir(), "short.jsonl")
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("A quick question in another window.")
+	s.hook("Stop", map[string]any{"last_assistant_message": "ok"})
+	s.hook("SessionEnd", map[string]any{"reason": "other"})
+
+	s.session, s.transcript = long, longTranscript
+	time.Sleep(10 * time.Millisecond)
+	s.prompt("A later prompt of the long session.")
+	s.hook("Stop", map[string]any{"last_assistant_message": "ok"})
+	for _, id := range []string{"e2e-short", long} {
+		if out, err := run(t, "ingest", "--session", id); err != nil {
+			t.Fatalf("ingest %s: %v %s", id, err, out)
+		}
+	}
+	out, err := run(t, "timeline")
+	if err != nil || !strings.Contains(out, "A later prompt of the long session.") {
+		t.Errorf("default session is not the latest active one:\n%s %v", out, err)
+	}
+}

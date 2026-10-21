@@ -39,34 +39,14 @@ type Data struct {
 	Timeline    []TimelineStep
 	LLMOn       bool
 	RepoTop     string
+	// LineSteps maps a file and a line of the new file to the step that wrote it.
+	LineSteps map[string]map[int]string
 }
 
 type Callbacks struct {
 	SetUnitStatus func(unitID, status string) error
 	// Ask is nil when no LLM is configured.
 	Ask func(question string) (string, error)
-}
-
-func (d *Data) hunkByID(id string) (int, int, bool) {
-	for ui, u := range d.Units {
-		for hi, h := range u.Hunks {
-			if h.ID == id {
-				return ui, hi, true
-			}
-		}
-	}
-	return 0, 0, false
-}
-
-func (d *Data) hunkByFile(path string) (int, int, bool) {
-	for ui, u := range d.Units {
-		for hi, h := range u.Hunks {
-			if h.FilePath == path {
-				return ui, hi, true
-			}
-		}
-	}
-	return 0, 0, false
 }
 
 func (d *Data) step(id string) (model.Step, *store.SessionData, bool) {
@@ -113,4 +93,12 @@ func (d *Data) unitFlags(u Unit) int {
 		}
 	}
 	return n
+}
+
+func (d *Data) hunks() []model.Hunk {
+	var out []model.Hunk
+	for _, u := range d.Units {
+		out = append(out, u.Hunks...)
+	}
+	return out
 }

@@ -50,6 +50,10 @@ type Model struct {
 	prev          viewKind
 	focus         pane
 
+	units  []Unit
+	turns  []turn
+	prompt int
+
 	unit, hunk int
 	diffScroll int
 	whyScroll  int
@@ -75,7 +79,9 @@ type Model struct {
 func New(d *Data, cb Callbacks, color bool) *Model {
 	in := textinput.New()
 	in.CharLimit = 500
-	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, mdStyle: "dark"}
+	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, mdStyle: "dark", prompt: -1}
+	m.turns = buildTurns(d)
+	m.applyPrompt()
 	m.Editor = defaultEditor
 	return m
 }
@@ -113,10 +119,10 @@ func (m *Model) layout() int {
 }
 
 func (m *Model) curUnit() (Unit, bool) {
-	if m.unit < 0 || m.unit >= len(m.data.Units) {
+	if m.unit < 0 || m.unit >= len(m.units) {
 		return Unit{}, false
 	}
-	return m.data.Units[m.unit], true
+	return m.units[m.unit], true
 }
 
 func (m *Model) curHunk() (model.Hunk, bool) {
@@ -128,10 +134,10 @@ func (m *Model) curHunk() (model.Hunk, bool) {
 }
 
 func (m *Model) selectUnit(i int) {
-	if len(m.data.Units) == 0 {
+	if len(m.units) == 0 {
 		return
 	}
-	m.unit = max(0, min(i, len(m.data.Units)-1))
+	m.unit = max(0, min(i, len(m.units)-1))
 	m.hunk, m.diffScroll, m.whyScroll = 0, 0, 0
 }
 
@@ -144,8 +150,33 @@ func (m *Model) selectHunk(i int) {
 	m.diffScroll, m.whyScroll = 0, 0
 }
 
+func findHunk(units []Unit, match func(model.Hunk) bool) (int, int, bool) {
+	for ui, u := range units {
+		for hi, h := range u.Hunks {
+			if match(h) {
+				return ui, hi, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+// locate finds a hunk in the visible units. A hunk that the selected prompt
+// did not change brings back all prompts.
+func (m *Model) locate(match func(model.Hunk) bool) (int, int, bool) {
+	if ui, hi, ok := findHunk(m.units, match); ok {
+		return ui, hi, true
+	}
+	if _, _, ok := findHunk(m.data.Units, match); !ok || m.prompt < 0 {
+		return 0, 0, false
+	}
+	m.prompt = -1
+	m.applyPrompt()
+	return findHunk(m.units, match)
+}
+
 func (m *Model) jumpToHunk(id string) bool {
-	if ui, hi, ok := m.data.hunkByID(id); ok {
+	if ui, hi, ok := m.locate(func(h model.Hunk) bool { return h.ID == id }); ok {
 		m.unit, m.hunk, m.diffScroll, m.whyScroll = ui, hi, 0, 0
 		return true
 	}
@@ -157,7 +188,7 @@ func (m *Model) jumpToFlag(f model.Flag) bool {
 	case "hunk":
 		return m.jumpToHunk(f.TargetID)
 	case "file":
-		if ui, hi, ok := m.data.hunkByFile(f.TargetID); ok {
+		if ui, hi, ok := m.locate(func(h model.Hunk) bool { return h.FilePath == f.TargetID }); ok {
 			m.unit, m.hunk, m.diffScroll = ui, hi, 0
 			return true
 		}
@@ -267,7 +298,7 @@ func (m *Model) search(q string) {
 	q = strings.ToLower(q)
 	type pos struct{ u, h int }
 	var all []pos
-	for ui, u := range m.data.Units {
+	for ui, u := range m.units {
 		for hi := range u.Hunks {
 			all = append(all, pos{ui, hi})
 		}
@@ -280,7 +311,7 @@ func (m *Model) search(q string) {
 	}
 	for i := 0; i < len(all); i++ {
 		p := all[(start+i)%len(all)]
-		h := m.data.Units[p.u].Hunks[p.h]
+		h := m.units[p.u].Hunks[p.h]
 		if strings.Contains(strings.ToLower(h.FilePath), q) || strings.Contains(strings.ToLower(h.Patch), q) {
 			m.unit, m.hunk, m.diffScroll = p.u, p.h, 0
 			m.status = fmt.Sprintf("found %q in %s", q, h.FilePath)
@@ -350,7 +381,12 @@ func (m *Model) setStatus(unitStatus string) {
 			return
 		}
 	}
-	m.data.Units[m.unit].Status = unitStatus
+	m.units[m.unit].Status = unitStatus
+	for i := range m.data.Units {
+		if m.data.Units[i].ID == u.ID {
+			m.data.Units[i].Status = unitStatus
+		}
+	}
 	m.status = fmt.Sprintf("unit %d: %s", m.unit+1, unitStatus)
 }
 
@@ -417,13 +453,17 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "G", "end":
 		switch m.focus {
 		case paneUnits:
-			m.selectUnit(len(m.data.Units) - 1)
+			m.selectUnit(len(m.units) - 1)
 		case paneDiff:
 			u, _ := m.curUnit()
 			m.selectHunk(len(u.Hunks) - 1)
 		default:
 			m.whyScroll = 1 << 20
 		}
+	case "p":
+		m.selectPrompt(m.prompt + 1)
+	case "P":
+		m.selectPrompt(m.prompt - 1)
 	case "[":
 		m.selectUnit(m.unit - 1)
 	case "]":

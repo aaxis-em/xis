@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -154,7 +155,7 @@ func (b *builder) transcript(entries []Entry, agentID string) {
 			if skipPrompt(text) {
 				continue
 			}
-			b.prompts = append(b.prompts, b.add(&item{ts: e.Timestamp, key: e.UUID, kind: model.StepUserMessage, text: text, actor: actorHuman}))
+			b.prompts = append(b.prompts, b.add(&item{ts: e.Timestamp, key: e.UUID, kind: model.StepUserMessage, text: promptText(text), actor: actorHuman}))
 		case "assistant":
 			if e.Message == nil {
 				continue
@@ -318,9 +319,9 @@ func (b *builder) hooks() []mark {
 	}
 	used := map[*item]bool{}
 	for _, ph := range promptHooks {
-		want := strings.TrimSpace(ph.p.Prompt)
+		want := promptText(ph.p.Prompt)
 		for _, pi := range b.prompts {
-			if !used[pi] && strings.TrimSpace(pi.text) == want {
+			if !used[pi] && pi.text == want {
 				ph.matched, used[pi] = pi, true
 				break
 			}
@@ -337,7 +338,7 @@ func (b *builder) hooks() []mark {
 			}
 		}
 		if ph.matched == nil && !skipPrompt(ph.p.Prompt) {
-			ph.matched = b.add(&item{ts: ph.ev.Ts, key: "prompt:" + ph.ev.Key, kind: model.StepUserMessage, text: ph.p.Prompt, actor: actorHuman})
+			ph.matched = b.add(&item{ts: ph.ev.Ts, key: "prompt:" + ph.ev.Key, kind: model.StepUserMessage, text: promptText(ph.p.Prompt), actor: actorHuman})
 		}
 	}
 	for _, ph := range promptHooks {
@@ -637,4 +638,11 @@ func ToolPaths(input string) []string {
 		}
 	}
 	return out
+}
+
+// pastedTagRe matches the tags around text that the user pasted into the prompt.
+var pastedTagRe = regexp.MustCompile(`</?pasted_content[^>]*>`)
+
+func promptText(s string) string {
+	return strings.TrimSpace(pastedTagRe.ReplaceAllString(s, ""))
 }
