@@ -383,3 +383,107 @@ func TestE2EFlags(t *testing.T) {
 		t.Errorf("flags --staged: %v", err)
 	}
 }
+
+func TestE2EReportNotesExport(t *testing.T) {
+	s := newScenario(t)
+	runCalcScenario(s)
+	md, err := run(t, "--repo", s.repo, "report", "--md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range []string{"## xis provenance report", "TEST_EDIT_AFTER_FAILURE", "Last test run: **pass**", "LLM analysis not run"} {
+		if !strings.Contains(md, w) {
+			t.Errorf("report misses %q:\n%s", w, md)
+		}
+	}
+	js, err := run(t, "--repo", s.repo, "--json", "report")
+	if err != nil || !json.Valid([]byte(js)) {
+		t.Fatalf("json report: %v", err)
+	}
+
+	gitc := func(args ...string) string {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = s.repo
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	gitc("add", "-A")
+	gitc("commit", "-qm", "fix add")
+	if out, err := run(t, "--repo", s.repo, "note", "write"); err != nil || !strings.Contains(out, "wrote refs/notes/xis") {
+		t.Fatalf("note write: %v %s", err, out)
+	}
+	raw := gitc("notes", "--ref", "refs/notes/xis", "show", "HEAD")
+	var note map[string]any
+	if err := json.Unmarshal([]byte(raw), &note); err != nil {
+		t.Fatal(err)
+	}
+	if hs, _ := note["hunks"].([]any); len(hs) != 4 {
+		t.Errorf("note hunks = %v", note["hunks"])
+	}
+	for _, bad := range []string{"Fix the Add", "return a + b", "The bug is in Add"} {
+		if strings.Contains(raw, bad) {
+			t.Errorf("note contains text %q", bad)
+		}
+	}
+	if out, err := run(t, "--repo", s.repo, "note", "verify"); err != nil || !strings.Contains(out, "valid (signed with the local key)") {
+		t.Fatalf("verify: %v %s", err, out)
+	}
+	tampered := strings.Replace(raw, `"high":1`, `"high":0`, 1)
+	if tampered == raw {
+		t.Fatalf("note has no high count to tamper: %s", raw)
+	}
+	cmd := exec.Command("git", "notes", "--ref", "refs/notes/xis", "add", "-f", "-m", tampered, "HEAD")
+	cmd.Dir = s.repo
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	out, err := run(t, "--repo", s.repo, "note", "verify")
+	var ec exitCode
+	if !errors.As(err, &ec) || !strings.Contains(out, "INVALID") {
+		t.Errorf("tampered note: err=%v out=%s", err, out)
+	}
+
+	at, err := run(t, "--repo", s.repo, "export", "agent-trace", "--range", "HEAD~1..HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rec struct {
+		Version string `json:"version"`
+		VCS     struct{ Type, Revision string }
+		Files   []struct {
+			Path          string `json:"path"`
+			Conversations []struct {
+				Contributor struct {
+					Type    string `json:"type"`
+					ModelID string `json:"model_id"`
+				} `json:"contributor"`
+				Ranges []struct {
+					StartLine   int    `json:"start_line"`
+					EndLine     int    `json:"end_line"`
+					ContentHash string `json:"content_hash"`
+				} `json:"ranges"`
+			} `json:"conversations"`
+		} `json:"files"`
+	}
+	if err := json.Unmarshal([]byte(at), &rec); err != nil {
+		t.Fatalf("%v\n%s", err, at)
+	}
+	if rec.Version != "0.1" || rec.VCS.Type != "git" || len(rec.VCS.Revision) != 40 || len(rec.Files) != 4 {
+		t.Fatalf("agent trace: %s", at)
+	}
+	types := map[string]string{}
+	for _, f := range rec.Files {
+		types[f.Path] = f.Conversations[0].Contributor.Type
+		for _, r := range f.Conversations[0].Ranges {
+			if r.StartLine < 1 || r.EndLine < r.StartLine || !strings.HasPrefix(r.ContentHash, "murmur3:") {
+				t.Errorf("bad range %+v", r)
+			}
+		}
+	}
+	if types["calc.go"] != "ai" || types["README.md"] != "human" {
+		t.Errorf("contributors = %v", types)
+	}
+}

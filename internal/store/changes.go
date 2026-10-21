@@ -250,3 +250,22 @@ func (s *Store) ListQA(changeID string) ([]model.QA, error) {
 	}
 	return out, rows.Err()
 }
+
+func (s *Store) ListChanges(repoID string) ([]model.Change, error) {
+	rows, err := s.query(`SELECT id, repo_id, base_ref, target_ref, session_ids, created_at FROM changes WHERE repo_id = ? ORDER BY created_at DESC`, repoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.Change
+	for rows.Next() {
+		var c model.Change
+		var repo, base, target, sids, created sql.NullString
+		if err := rows.Scan(&c.ID, &repo, &base, &target, &sids, &created); err != nil {
+			return nil, err
+		}
+		c.RepoID, c.BaseRef, c.TargetRef, c.SessionIDs, c.CreatedAt = str(repo), str(base), str(target), parseList(sids), parseTS(created)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}

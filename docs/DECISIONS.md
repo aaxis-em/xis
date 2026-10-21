@@ -218,3 +218,21 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `xis review` and `xis flags` compute the change again, with the fixed grouping.
 - **Choice:** If the stored units of the change came from the LLM and the change has exactly the same hunks, xis keeps the LLM units. Otherwise the fixed grouping replaces them.
 - **Why:** The LLM grouping is valid only for the hunks that it saw.
+
+## D37. Review counts in the note
+
+- **Context:** The note of a commit has the number of review units and the number of understood units. You review the working tree before the commit exists, so the units of the commit change have no status.
+- **Choice:** xis takes the counts from the latest working-tree or index change of the same sessions. If there is none, it uses the units of the commit change.
+- **Why:** The counts then show the review that you did.
+
+## D38. Canonical JSON for the signature
+
+- **Context:** Section 17 asks for an ed25519 signature "over canonical JSON without sig".
+- **Choice:** Canonical JSON is the note without `sig`, with sorted keys, no extra whitespace and numbers as written.
+- **Why:** Tools can format the note again. The signature must stay valid unless a value changes.
+
+## D39. Agent Trace mapping
+
+- **Context:** The Agent Trace v0.1.0 specification has files, conversations and ranges. It does not say how to split lines into conversations.
+- **Choice:** Each file has one conversation for the AI lines of each session, one for human lines and one for unknown lines. An AI conversation has `model_id` as `provider/model`. A range is a run of consecutive added lines with the same source. The `version` field is `0.1`, because the schema needs `major.minor`. For the working tree, the record has no `vcs` object.
+- **Why:** The mapping uses only the specification fields. xis-specific data goes in `metadata` under the key `dev.xis`.

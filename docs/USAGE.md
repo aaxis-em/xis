@@ -279,3 +279,58 @@ citations:
 ```
 
 If the record has no answer, the answer is "Not in the session record." In `xis review`, press `a` to ask. Press `tab` to select a citation and `enter` to go to it.
+
+## `xis report`
+
+The command writes a summary of a change for a pull request. The default format is Markdown. Use the global `--json` flag for JSON, and `-o FILE` to write a file.
+
+```console
+$ xis report --md -o report.md
+wrote report.md
+```
+
+The report has these sections:
+
+1. A header with the agents, the models, the fidelity, the steps, the duration and the changed files and lines.
+2. Intent: the intent items and their status.
+3. Flags: a table of the unsuppressed flags. Then the suppressed flags with their reasons.
+4. Review units: the units in review order, with a short explanation and the files of each unit. Without an LLM, the explanation is a provenance summary.
+5. Verification: the test runs, the status of the last run and the unverified agent claims.
+6. A footer with the xis version, the session IDs and the note reference.
+
+The report has about 150 lines. Use `--full` for all items. The report contains no secrets and no transcript text, except short quotes of agent claims.
+
+## `xis note`
+
+The command attaches a signed provenance note to a commit, under `refs/notes/xis`.
+
+```console
+$ git commit -m "Fix add"
+$ xis note write
+wrote refs/notes/xis note for 3f786850e387 (1 sessions, 4 hunks)
+$ xis note verify
+valid (signed with the local key)
+```
+
+The note contains only hashes, counts and IDs. It has the sessions, the flag counts and the review counts. For each hunk, it has a content hash and a contributor. It contains no transcript text, no prompts and no code. xis signs the note with the ed25519 key in `~/.local/share/xis/keys`.
+
+`xis note verify` exits with code 1 if the note changed after it was signed. `xis note show` shows the note and the signature status.
+
+To write a note after each commit automatically, set `notes.auto = true` and run `xis precommit install`. The command then also installs a `post-commit` hook.
+
+Git does not push notes by default. To share the notes, run:
+
+```sh
+git push origin refs/notes/xis
+```
+
+## `xis export agent-trace`
+
+The command writes the change as an [Agent Trace](https://agent-trace.dev/) v0.1 record (JSON). Each file has one conversation for each source: the AI lines of each session, the human lines and the unknown lines. Each range has a `murmur3:` content hash.
+
+```console
+$ xis export agent-trace --range HEAD~1..HEAD -o trace.json
+wrote trace.json
+```
+
+For a commit range, `vcs.revision` is the target commit. For the working tree, the record has no `vcs` object, because the lines refer to no commit.

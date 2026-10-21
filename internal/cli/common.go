@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aaxis-em/xis/internal/attribution"
+	"github.com/aaxis-em/xis/internal/gitx"
 	"github.com/aaxis-em/xis/internal/ingest"
 	"github.com/aaxis-em/xis/internal/snapshot"
 	"github.com/aaxis-em/xis/internal/store"
@@ -97,4 +98,8 @@ func oneLine(s string, n int) string {
 		return string(r[:n-1]) + "…"
 	}
 	return s
+}
+
+func gitRun(repo string, args ...string) (string, error) {
+	return gitx.In(repo).Run(args...)
 }

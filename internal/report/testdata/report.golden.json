@@ -1,0 +1,116 @@
+{
+  "change_id": "C1",
+  "base": "3f786850e387",
+  "target": "worktree",
+  "sessions": [
+    {
+      "id": "01M5CTQV4E0000000000000000",
+      "agent": "claude-code",
+      "agent_version": "2.1.304",
+      "models": [
+        "claude-sonnet-5-5"
+      ],
+      "fidelity": "live",
+      "steps": 5,
+      "duration": "3m12s",
+      "status": "ended"
+    }
+  ],
+  "files_changed": 3,
+  "lines_added": 7,
+  "lines_removed": 1,
+  "contributors": {
+    "ai": 2,
+    "human": 1
+  },
+  "intent": [
+    {
+      "text": "Fix the Add function",
+      "status": "addressed"
+    },
+    {
+      "text": "Add a test for Sub",
+      "status": "unaddressed"
+    }
+  ],
+  "flags": [
+    {
+      "id": "f1",
+      "severity": "high",
+      "rule": "TEST_EDIT_AFTER_FAILURE",
+      "location": "step st3",
+      "message": "The agent edited calc_test.go after a failing test run."
+    }
+  ],
+  "suppressed": [
+    {
+      "id": "f2",
+      "severity": "medium",
+      "rule": "TEST_FILE_MODIFIED",
+      "location": "file calc_test.go",
+      "message": "The agent changed the test file calc_test.go.",
+      "suppress_reason": "the old test was wrong"
+    }
+  ],
+  "review_units": [
+    {
+      "title": "Fix addition",
+      "status": "understood",
+      "source": "llm",
+      "explanation": [
+        "Add now adds instead of subtracting [hunk:h1]."
+      ],
+      "files": [
+        "calc.go"
+      ],
+      "hunks": 1
+    },
+    {
+      "title": "Tests: calc_test.go",
+      "status": "unreviewed",
+      "source": "rule",
+      "explanation": [
+        "1 hunk from steps #3 (1 ai)."
+      ],
+      "files": [
+        "calc_test.go"
+      ],
+      "hunks": 1
+    },
+    {
+      "title": "Docs: README.md",
+      "status": "questioned",
+      "source": "rule",
+      "explanation": [
+        "1 hunk from steps #5 (1 human)."
+      ],
+      "files": [
+        "README.md"
+      ],
+      "hunks": 1
+    }
+  ],
+  "test_runs": [
+    {
+      "command": "go test ./...",
+      "outcome": "fail",
+      "step": 3
+    },
+    {
+      "command": "go test ./...",
+      "outcome": "pass",
+      "step": 4
+    }
+  ],
+  "last_test_run": "pass",
+  "agent_claims": [
+    {
+      "quote": "The bug is in Add: it subtracts.",
+      "file": "calc.go",
+      "verified": false
+    }
+  ],
+  "xis_version": "v0.1.0",
+  "note_ref": "refs/notes/xis",
+  "generated_at": "2026-10-20T12:00:00Z"
+}

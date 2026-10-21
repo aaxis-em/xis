@@ -26,7 +26,8 @@ This document describes the design of xis. It uses the terms in the [glossary](G
 | `internal/llm` | The provider interface (anthropic, openaicompat, mock), the cache and the budget guard. |
 | `internal/analysis` | Intent, grouping, hunk explanations, the citation validator and the verification badges. The prompts are in `internal/analysis/prompts`. |
 | `internal/qa` | The grounded answers of `xis ask`. |
-| `internal/notes` | The signing key and (later) the git notes. |
+| `internal/notes` | The signing key, the signed git notes and the Agent Trace export. |
+| `internal/report` | The Markdown and JSON reports. |
 | `internal/model` | The canonical types. |
 | `internal/store` | The SQLite database and the migrations. |
 
@@ -288,3 +289,11 @@ The evidence pack (`analysis.Pack`) gives each step, hunk and intent item a shor
 For a long session (more than 60,000 characters of steps), xis first asks for a one-sentence summary of each step. Later tasks use the summaries for steps that are not near the hunk.
 
 The prompts are Go constants with a version, for example `rationale-v1`. The version is part of the cache key, so a changed prompt never reuses old responses.
+
+## Notes and signatures
+
+`xis note write` computes the change `REF^..REF` and builds a note with hashes, counts and IDs only. The review counts come from the latest working-tree or index change of the same sessions, because you review before the commit exists.
+
+To sign, xis removes the field `sig`, writes the JSON with sorted keys, and signs those bytes with ed25519. The note holds the public key. To verify, xis does the same steps and checks the signature. Thus a note verifies after any change of whitespace or key order, but not after a change of a value.
+
+xis writes the note with `git notes --ref refs/notes/xis add -f`. This is the only write of xis to the user repository, together with the hooks that you install explicitly.
