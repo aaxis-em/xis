@@ -410,3 +410,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A user saw "UserPromptSubmit hook timed out after 10s". The hook needs about 50 milliseconds. But ingest held the session lock for its whole run, and the hook waited up to 8 seconds for it. The transcript of a long session was 12 MB, and other xis commands can hold the database.
 - **Choice:** Ingest takes the session lock twice, each time for a short time. It reads the spool, and at the end it removes the bytes that it read. Lines that hooks add in between stay for the next ingest. A separate lock lets only one ingest of a session run at a time, and hooks never take it. The hook waits 3 seconds at most. xis no longer deletes lock files, because another process can hold them.
 - **Why:** A hook must finish within the 10 seconds of Claude Code. A deleted lock file lets a second process take a new lock while the first one still holds the old one.
+
+## D69. Commands and data in a shell command
+
+- **Context:** In a long real session, 17 of 19 high flags were false. The command rules searched the full command text, including heredoc bodies and quoted text. A test fixture with `.env.local`, a commit message and a `sed` pattern counted as commands. The message showed the start of the command, not the match.
+- **Choice:** The package `shellcmd` removes heredoc bodies, and for the command rules also the text in quotes. A script after `sh -c`, `bash -c`, `eval` or `ssh` stays, because the shell runs it. The message shows the simple command that matched. An `rm` of paths in `/tmp` only is not destructive. `TEST_SKIPPED` reads test files only, because `pending` is a common word in code.
+- **Why:** A high flag must point to a real action. Too many false flags teach the user to ignore all flags.

@@ -10,6 +10,7 @@ import (
 	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/shellcmd"
 	"github.com/aaxis-em/xis/internal/store"
 	"github.com/aaxis-em/xis/internal/testdetect"
 )
@@ -79,6 +80,9 @@ func init() {
 	def("TEST_SKIPPED", model.SevHigh, func(r *rule, c *Context) []model.Flag {
 		var out []model.Flag
 		for _, h := range c.Hunks {
+			if !c.Tests.IsTestFile(h.FilePath) {
+				continue
+			}
 			for _, l := range c.Added(h) {
 				if m := skipRe.FindString(l.Text); m != "" {
 					out = append(out, r.hunkFlag(c, h, l.N, fmt.Sprintf("A test is skipped or disabled in %s (%q).", h.FilePath, strings.TrimSpace(m))))
@@ -303,7 +307,7 @@ func init() {
 					}
 				}
 				if hit == "" && (tc.Category == model.CatShell || tc.Category == model.CatTest) {
-					if m := secretInCmdRe.FindStringSubmatch(adapters.Command(tc.Input)); m != nil {
+					if m := secretInCmdRe.FindStringSubmatch(shellcmd.WithoutHeredocs(adapters.Command(tc.Input))); m != nil {
 						hit = m[2]
 					}
 				}
@@ -374,8 +378,14 @@ func init() {
 					if cmd == "" || !c.agentStep(d, s) {
 						continue
 					}
-					if m := re.FindString(cmd); m != "" {
-						out = append(out, r.flag(c, d.Session.ID, "step", s.ID, "", fmt.Sprintf("The agent ran a %s: %s", what, oneLine(cmd)), s.ID))
+					code := shellcmd.Code(cmd)
+					for _, loc := range re.FindAllStringIndex(code, -1) {
+						seg := shellcmd.Segment(code, loc[0])
+						if id == "DESTRUCTIVE_COMMAND" && removesOnlyTemp(seg) {
+							continue
+						}
+						out = append(out, r.flag(c, d.Session.ID, "step", s.ID, "", fmt.Sprintf("The agent ran a %s: %s", what, oneLine(seg)), s.ID))
+						break
 					}
 				}
 			}
@@ -565,6 +575,25 @@ func onlyMetadata(c *Context, path string) bool {
 			}
 			n++
 		}
+	}
+	return n > 0
+}
+
+// removesOnlyTemp reports an rm command whose targets are all in /tmp.
+func removesOnlyTemp(seg string) bool {
+	f := strings.Fields(seg)
+	if len(f) == 0 || f[0] != "rm" {
+		return false
+	}
+	n := 0
+	for _, a := range f[1:] {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		if !strings.HasPrefix(a, "/tmp/") {
+			return false
+		}
+		n++
 	}
 	return n > 0
 }

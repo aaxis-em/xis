@@ -165,7 +165,10 @@ func TestRules(t *testing.T) {
 			}},
 		{"TEST_SKIPPED",
 			func(b *tb) { b.hunk("a_test.go", "+\tt.Skip(\"flaky\")", b.edit("a_test.go", "")) },
-			func(b *tb) { b.hunk("a_test.go", "+\tt.Log(\"skip nothing\")", b.edit("a_test.go", "")) }},
+			func(b *tb) {
+				b.hunk("a_test.go", "+\tt.Log(\"skip nothing\")", b.edit("a_test.go", ""))
+				b.hunk("queue.go", "+\tpending = pending[1:]", b.edit("queue.go", ""))
+			}},
 		{"SNAPSHOT_UPDATED",
 			func(b *tb) { b.test("npx jest -u", "pass") },
 			func(b *tb) { b.test("npx jest", "pass") }},
@@ -440,6 +443,29 @@ func TestDependencyChangedNeedsDependencyLines(t *testing.T) {
 		b.hunk(tc.path, tc.body, b.edit(tc.path, ""))
 		if got := len(b.run("DEPENDENCY_CHANGED")) == 1; got != tc.want {
 			t.Errorf("%s %q: flagged %v, want %v", tc.path, tc.body, got, tc.want)
+		}
+	}
+}
+
+func TestCommandRulesReadOnlyCode(t *testing.T) {
+	for _, tc := range []struct {
+		rule, cmd string
+		want      bool
+	}{
+		{"DESTRUCTIVE_COMMAND", "make && rm -rf build", true},
+		{"DESTRUCTIVE_COMMAND", "bash -c 'rm -rf build'", true},
+		{"DESTRUCTIVE_COMMAND", "rm -rf /tmp/xis-test && mkdir /tmp/xis-test", false},
+		{"DESTRUCTIVE_COMMAND", "cat > rules.go <<'EOF'\n// flags rm -rf build\nEOF", false},
+		{"DESTRUCTIVE_COMMAND", `git commit -m "remove the rm -rf from the script"`, false},
+		{"GIT_HISTORY_REWRITE", "git commit -q --amend --no-edit", true},
+		{"GIT_HISTORY_REWRITE", `sed -i 's/git rebase/git merge/' docs/x.md`, false},
+		{"SECRET_FILE_ACCESS", "cat .env", true},
+		{"SECRET_FILE_ACCESS", "cat > .goreleaser.yaml <<'EOF'\ntoken: \"{{ .Env.TAP_TOKEN }}\"\nEOF", false},
+	} {
+		b := newTB(t)
+		b.tool("Bash", map[string]any{"command": tc.cmd})
+		if got := len(b.run(tc.rule)) > 0; got != tc.want {
+			t.Errorf("%s %q: flagged %v, want %v", tc.rule, tc.cmd, got, tc.want)
 		}
 	}
 }

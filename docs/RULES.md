@@ -84,7 +84,7 @@ A suppression applies to the same finding in later runs. xis finds the same find
 
 **Severity:** `high`. **Target:** hunk.
 
-**What it detects:** An added line skips or disables a test, for example `t.Skip`, `@pytest.mark.skip`, `xfail`, `.skip(`, `xit(`, `xdescribe(`, `@Disabled`, `@Ignore`, `#[ignore]` or `pending`.
+**What it detects:** An added line in a test file skips or disables a test. Examples are `t.Skip`, `@pytest.mark.skip`, `xfail`, `.skip(`, `xit(`, `xdescribe(`, `@Disabled`, `@Ignore`, `#[ignore]` and `pending`.
 
 **Why it matters:** A skipped test does not run. The test suite then passes without the check.
 
@@ -263,7 +263,7 @@ flowchart LR
 
 **Severity:** `high`. **Target:** step.
 
-**What it detects:** The agent read or edited a secret file, or a shell command of the agent named one. Secret files are `.env*`, `*.pem`, `*.key`, `id_rsa*`, `*credentials*` and `*.p12`.
+**What it detects:** The agent read or edited a secret file, or a shell command of the agent named one. Secret files are `.env*`, `*.pem`, `*.key`, `id_rsa*`, `*credentials*` and `*.p12`. The rule ignores heredoc bodies, because they are data, for example the content of a file that the command writes.
 
 **Why it matters:** Secret files can go into the transcript and to an LLM provider.
 
@@ -299,7 +299,7 @@ flowchart LR
 
 **Severity:** `high`. **Target:** step.
 
-**What it detects:** The agent ran `rm -rf`, `git reset --hard`, `git push --force`, `git clean -f`, `git checkout -- .`, `DROP TABLE`, `TRUNCATE` or `chmod -R 777`.
+**What it detects:** The agent ran `rm -rf`, `git reset --hard`, `git push --force`, `git clean -f`, `git checkout -- .`, `DROP TABLE`, `TRUNCATE` or `chmod -R 777`. The rule reads only the parts of the command that the shell runs. It ignores heredoc bodies and text in quotes, but it reads a script after `sh -c`, `bash -c`, `eval` or `ssh`. The message shows the command that matched. An `rm` of paths in `/tmp` only does not fire the rule.
 
 **Why it matters:** These commands can delete work or data.
 
@@ -311,7 +311,7 @@ flowchart LR
 
 **Severity:** `high`. **Target:** step.
 
-**What it detects:** The agent ran `git rebase`, `git commit --amend`, `git filter-branch`, `git filter-repo` or a force push.
+**What it detects:** The agent ran `git rebase`, `git commit --amend`, `git filter-branch`, `git filter-repo` or a force push. Like `DESTRUCTIVE_COMMAND`, the rule ignores heredoc bodies and text in quotes.
 
 **Why it matters:** A history rewrite can remove commits of other people.
 

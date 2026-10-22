@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/shellcmd"
 )
 
 var DefaultGlobs = []string{
@@ -109,7 +110,7 @@ func (d *Detector) Framework(command string) (string, bool) {
 // Detect also returns the part of a compound command that runs the tests,
 // for example "go test ./..." from "go vet ./... && go test ./...".
 func (d *Detector) Detect(command string) (framework, segment string, ok bool) {
-	segs := segments(command)
+	segs := segments(shellcmd.WithoutHeredocs(command))
 	for _, seg := range segs {
 		for _, c := range defaultCommands {
 			if c.re.MatchString(seg) {
