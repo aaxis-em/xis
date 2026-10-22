@@ -131,6 +131,7 @@ The hook obeys these rules:
 
 - The hook always exits with code 0. It never writes to stdout. It writes errors to the log file.
 - The hook holds a lock for each session. Thus hooks of the same session (for example of subagents) run one at a time. The order of the spool lines is the order of the snapshot chain.
+- Ingest takes the same lock only to read the spool and to remove the lines that it read. A long ingest thus never makes a hook wait.
 - If the working directory is not in a git repository, the hook records the event without a snapshot. The spool line has `"no_git": true`.
 - On `Stop` and `SessionEnd`, the hook starts `xis ingest --session <id>` as a detached process and returns immediately.
 

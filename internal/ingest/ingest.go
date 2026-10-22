@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -62,22 +61,21 @@ func eventKey(l capture.Line) string {
 // IngestSpool ingests one Claude Code session from its spool file and the
 // events already stored for it, then deletes the spool file.
 func (in *Ingester) IngestSpool(agentSessionID string) (Result, error) {
-	lock, err := capture.LockSession(in.Paths.Spool, agentSessionID, 30*time.Second)
+	run, err := capture.LockIngest(in.Paths.Spool, agentSessionID, 2*time.Minute)
 	if err != nil {
-		return Result{}, fmt.Errorf("lock session %s: %w", agentSessionID, err)
+		return Result{}, fmt.Errorf("another ingest of session %s runs: %w", agentSessionID, err)
 	}
-	defer lock.Release()
-	path := capture.SpoolPath(in.Paths.Spool, agentSessionID)
-	lines, err := capture.ReadSpool(path)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	defer run.Release()
+	lines, size, err := capture.TakeSpool(in.Paths.Spool, agentSessionID)
+	if err != nil {
 		return Result{}, err
 	}
 	res, err := in.ingestLines(agentSessionID, lines)
 	if err != nil {
 		return res, err
 	}
-	if err := capture.RemoveSpool(in.Paths.Spool, agentSessionID); err != nil {
-		slog.Warn("remove spool", "session", agentSessionID, "err", err.Error())
+	if err := capture.DropSpool(in.Paths.Spool, agentSessionID, size); err != nil {
+		slog.Warn("drop spool", "session", agentSessionID, "err", err.Error())
 	}
 	return res, nil
 }

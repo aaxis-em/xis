@@ -71,7 +71,7 @@ This log records each decision that the specification does not settle. Each entr
 ## D12. Session lock in the hook
 
 - **Context:** Hooks of one session can run at the same time (for example in subagents). Two snapshots at the same time can break the chain.
-- **Choice:** The hook takes an exclusive `flock` lock for each session for the snapshot and the spool write. The wait is 8 seconds at most. After that, the hook continues without the lock and logs a warning.
+- **Choice:** The hook takes an exclusive `flock` lock for each session for the snapshot and the spool write. The wait is 3 seconds at most (8 seconds before D68). After that, the hook continues without the lock and logs a warning.
 - **Why:** The order of the spool lines is then the order of the chain. The hook never blocks the agent for long.
 
 ## D13. Git 2.31 or later
@@ -404,3 +404,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Claude Code puts pasted text in `<pasted_content>` tags in the prompt. The PROMPTS list showed the tags in place of the text.
 - **Choice:** The adapter removes these tags from the prompt text. It compares the hook prompt and the transcript prompt after the same cleanup.
 - **Why:** The tags are not part of the instruction of the user.
+
+## D68. Short spool locks for ingest
+
+- **Context:** A user saw "UserPromptSubmit hook timed out after 10s". The hook needs about 50 milliseconds. But ingest held the session lock for its whole run, and the hook waited up to 8 seconds for it. The transcript of a long session was 12 MB, and other xis commands can hold the database.
+- **Choice:** Ingest takes the session lock twice, each time for a short time. It reads the spool, and at the end it removes the bytes that it read. Lines that hooks add in between stay for the next ingest. A separate lock lets only one ingest of a session run at a time, and hooks never take it. The hook waits 3 seconds at most. xis no longer deletes lock files, because another process can hold them.
+- **Why:** A hook must finish within the 10 seconds of Claude Code. A deleted lock file lets a second process take a new lock while the first one still holds the old one.

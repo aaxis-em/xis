@@ -83,6 +83,10 @@ func ReadSpool(path string) ([]Line, error) {
 	if err != nil {
 		return nil, err
 	}
+	return parseSpool(path, b)
+}
+
+func parseSpool(path string, b []byte) ([]Line, error) {
 	var out []Line
 	sc := bufio.NewScanner(bytes.NewReader(b))
 	sc.Buffer(make([]byte, 1<<20), 256<<20)
@@ -138,15 +142,71 @@ func ListSpool(spoolDir string) ([]SpoolFile, error) {
 	return out, nil
 }
 
+// RemoveSpool deletes the spool file. It keeps the lock files: another
+// process can hold them, and a new file would give a second lock holder.
 func RemoveSpool(spoolDir, sessionID string) error {
-	path := SpoolPath(spoolDir, sessionID)
-	err := os.Remove(path)
-	_ = os.Remove(path + ".wlock")
-	_ = os.Remove(sessionLockPath(spoolDir, sessionID))
+	err := os.Remove(SpoolPath(spoolDir, sessionID))
 	if os.IsNotExist(err) {
 		return nil
 	}
 	return err
+}
+
+// TakeSpool reads the spool of a session under the session lock and returns
+// its lines and its size. The lock is held only for the read, so the hooks
+// of a running session never wait for an ingest.
+func TakeSpool(spoolDir, sessionID string) ([]Line, int64, error) {
+	lock, err := LockSession(spoolDir, sessionID, 30*time.Second)
+	if err != nil {
+		return nil, 0, fmt.Errorf("lock session %s: %w", sessionID, err)
+	}
+	defer lock.Release()
+	path := SpoolPath(spoolDir, sessionID)
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, 0, nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	lines, err := parseSpool(path, b)
+	return lines, int64(len(b)), err
+}
+
+// DropSpool removes the first n bytes that TakeSpool returned. Hooks only
+// append, so the lines written after TakeSpool stay for the next ingest.
+func DropSpool(spoolDir, sessionID string, n int64) error {
+	lock, err := LockSession(spoolDir, sessionID, 30*time.Second)
+	if err != nil {
+		return fmt.Errorf("lock session %s: %w", sessionID, err)
+	}
+	defer lock.Release()
+	path := SpoolPath(spoolDir, sessionID)
+	wlock, err := lockfile.Acquire(path+".wlock", 5*time.Second)
+	if err != nil {
+		return err
+	}
+	defer wlock.Release()
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if int64(len(b)) <= n {
+		return RemoveSpool(spoolDir, sessionID)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b[n:], 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// LockIngest lets one ingest of a session run at a time. Hooks never take it.
+func LockIngest(spoolDir, sessionID string, timeout time.Duration) (*lockfile.Lock, error) {
+	return lockfile.Acquire(filepath.Join(spoolDir, snapshot.SafeName(sessionID)+".ingest.lock"), timeout)
 }
 
 // LockSession serializes ingest with the hooks of the same session.

@@ -61,7 +61,7 @@ func (h *Handler) handle(event string, stdin io.Reader) error {
 	}
 
 	line := Line{V: SpoolVersion, Ts: start.UTC(), Event: event, Payload: raw}
-	lock, lerr := LockSession(h.Paths.Spool, sid, 8*time.Second)
+	lock, lerr := LockSession(h.Paths.Spool, sid, 3*time.Second)
 	if lerr != nil {
 		slog.Warn("hook lock", "event", event, "session", sid, "err", lerr.Error())
 	}

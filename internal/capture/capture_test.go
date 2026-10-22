@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/aaxis-em/xis/internal/config"
 )
@@ -271,5 +272,47 @@ func BenchmarkHookSnapshot(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = os.WriteFile(filepath.Join(repo, "a.go"), []byte(fmt.Sprintf("package a // %d\n", i)), 0o644)
 		h.Handle("PostToolUse", strings.NewReader(in))
+	}
+}
+
+func TestHooksDoNotWaitForIngest(t *testing.T) {
+	h, _ := newHandler(t)
+	repo := newRepo(t)
+	spool := h.Paths.Spool
+	h.Handle("UserPromptSubmit", strings.NewReader(payload("s1", repo, "UserPromptSubmit", "", "")))
+
+	run, err := LockIngest(spool, "s1", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines, size, err := TakeSpool(spool, "s1")
+	if err != nil || len(lines) != 1 {
+		t.Fatalf("take: %d lines, %v", len(lines), err)
+	}
+
+	start := time.Now()
+	h.Handle("PreToolUse", strings.NewReader(payload("s1", repo, "PreToolUse", "Edit", "t1")))
+	if d := time.Since(start); d > 2*time.Second {
+		t.Errorf("hook waited %s while an ingest ran", d)
+	}
+
+	if err := DropSpool(spool, "s1", size); err != nil {
+		t.Fatal(err)
+	}
+	run.Release()
+	rest, err := ReadSpool(SpoolPath(spool, "s1"))
+	if err != nil || len(rest) != 1 || rest[0].Event != "PreToolUse" {
+		t.Fatalf("after drop: %+v %v", rest, err)
+	}
+
+	_, size, _ = TakeSpool(spool, "s1")
+	if err := DropSpool(spool, "s1", size); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(SpoolPath(spool, "s1")); !os.IsNotExist(err) {
+		t.Error("spool not removed after the last drop")
+	}
+	if _, err := os.Stat(filepath.Join(spool, "s1.lock")); err != nil {
+		t.Error("lock file removed with the spool")
 	}
 }
