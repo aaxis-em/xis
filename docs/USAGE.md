@@ -232,11 +232,22 @@ The UI has three panes:
 
 | Pane | Content |
 | --- | --- |
-| UNITS | The review units in review order, their status (✔ understood, ? questioned) and their flags. Below them: the intent items if an LLM ran, and the prompts with the number of hunks of each prompt. |
+| UNITS | The review units in review order, their review progress and their flags. Below them: the intent items if an LLM ran, and the prompts with the number of hunks of each prompt. |
 | DIFF | The current hunk with syntax colors, and the flags of the hunk. |
 | WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
 
 By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A line under the panes shows the prompt. Press `i` to read the full prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
+
+You mark each hunk. The mark in front of a unit shows its progress:
+
+| Mark | Meaning |
+| --- | --- |
+| (blank) | No hunk is understood. |
+| `◔` `◑` `◕` and a count such as `2/5` | Some hunks are understood. |
+| `✔` | All hunks are understood. |
+| `?` | One or more hunks are questioned. |
+
+The header shows the understood hunks of the change, for example `12/40 understood`. xis keeps the status of a hunk while the file and the lines of the hunk stay the same. Thus an edit in another part of the file does not clear it. `xis report` and `xis note` count a unit as understood when all its hunks are understood.
 
 The layout depends on the terminal width:
 
@@ -259,8 +270,9 @@ The keys are:
 | `g` / `G` | Go to the top or the bottom. |
 | `n` / `N` | Go to the next or the previous flag. |
 | `/` | Search the file paths and the hunks. |
-| `u` | Mark the unit as understood. Press again to clear. |
-| `x` | Mark the unit as questioned. Press again to clear. |
+| `u` | Mark the hunk as understood and go to the next hunk. Press again on the hunk to clear. |
+| `U` | Mark all hunks of the unit as understood. Press again to clear. |
+| `x` | Mark the hunk as questioned. Press again to clear. |
 | `t` | Open the timeline. Press `enter` on a step to see its full (redacted) content. |
 | `f` | Open the list of flags. Press `enter` to go to the hunk of a flag. |
 | `a` | Ask a question. This needs an LLM. |

@@ -67,6 +67,9 @@ func buildReviewData(st *store.Store, ca *changeAnalysis, llmOn bool) (*tui.Data
 	for _, u := range units {
 		d.Units = append(d.Units, tui.Unit{ReviewUnit: u, Hunks: byUnit[u.ID]})
 	}
+	if d.HunkStatus, err = loadHunkStatus(st, d.Units); err != nil {
+		return nil, err
+	}
 	rats, err := st.ListRationales(res.Change.ID)
 	if err != nil {
 		return nil, err
@@ -110,7 +113,7 @@ The UI works without an LLM.`,
 			if err != nil {
 				return err
 			}
-			cb := tui.Callbacks{SetUnitStatus: st.SetReviewUnitStatus}
+			cb := tui.Callbacks{SetUnitStatus: st.SetReviewUnitStatus, SetHunkStatus: st.SetHunkStatus}
 			if llmOn {
 				cb.Ask = a.askFunc(st, ca)
 			}
@@ -131,4 +134,38 @@ The UI works without an LLM.`,
 	}
 	cf.add(cmd)
 	return cmd
+}
+
+// loadHunkStatus reads the review status of each hunk. A unit that an older
+// xis marked as a whole gives its status to its hunks that have none.
+func loadHunkStatus(st *store.Store, units []tui.Unit) (map[string]string, error) {
+	var keys []string
+	for _, u := range units {
+		for _, h := range u.Hunks {
+			keys = append(keys, tui.HunkKey(h))
+		}
+	}
+	status, err := st.HunkStatuses(keys)
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range units {
+		if u.Status != "understood" && u.Status != "questioned" {
+			continue
+		}
+		marked := false
+		for _, h := range u.Hunks {
+			marked = marked || status[tui.HunkKey(h)] != ""
+		}
+		if marked {
+			continue
+		}
+		for _, h := range u.Hunks {
+			if err := st.SetHunkStatus(tui.HunkKey(h), u.Status); err != nil {
+				return nil, err
+			}
+			status[tui.HunkKey(h)] = u.Status
+		}
+	}
+	return status, nil
 }

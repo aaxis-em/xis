@@ -422,3 +422,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A user ran `xis hook install` in `~/test`, which had no repository. The home directory was a repository with no commits. xis took it as the project, and its `.claude/settings.json` is the user settings file. So the hooks ran in every folder. A snapshot of the home directory took more than 10 seconds, and Claude Code stopped the hook.
 - **Choice:** `xis hook install` with project scope stops with an error if the repository is the home directory. The hook does not take a snapshot of such a repository. It writes a snapshot error, so the session gets steps without edits.
 - **Why:** A snapshot of the home directory is slow, and it would copy all files of the user into the shadow repository.
+
+## D71. Review status of each hunk
+
+- **Context:** A unit can hold many hunks. The user wanted to mark each hunk and see the progress of a unit.
+- **Choice:** `u` and `x` mark the current hunk, and `U` marks all hunks of the unit. `u` then goes to the next hunk. The table `hunk_status` keeps the status by a key of the file and the hunk lines, without the line numbers. The unit shows a mark that fills up, and its status follows from its hunks. xis still writes the unit status, for the report and the note. A unit status from an older xis goes to its hunks once.
+- **Why:** Hunks get new rows and IDs on each run, so the status needs its own key. A key without line numbers survives edits in other parts of the file, and the session, `--staged` and `--pr` views share it.

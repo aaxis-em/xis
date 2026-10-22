@@ -7,7 +7,7 @@ import (
 )
 
 var actions = map[string]string{
-	"down": "j", "up": "k", "pane": "tab", "expand": "enter", "understood": "u", "question": "x",
+	"down": "j", "up": "k", "pane": "tab", "expand": "enter", "understood": "u", "understood_unit": "U", "question": "x",
 	"timeline": "t", "flags": "f", "ask": "a", "editor": "o", "help": "?", "quit": "q", "search": "/",
 	"next_flag": "n", "prev_flag": "N", "next_prompt": "p", "prev_prompt": "P", "full_prompt": "i", "top": "g", "bottom": "G", "prev_unit": "[", "next_unit": "]",
 }

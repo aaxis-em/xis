@@ -369,29 +369,6 @@ func (m *Model) setAnswer(text string) {
 	m.citeSel = 0
 }
 
-func (m *Model) setStatus(unitStatus string) {
-	u, ok := m.curUnit()
-	if !ok {
-		return
-	}
-	if u.Status == unitStatus {
-		unitStatus = "unreviewed"
-	}
-	if m.cb.SetUnitStatus != nil {
-		if err := m.cb.SetUnitStatus(u.ID, unitStatus); err != nil {
-			m.status = "save status: " + err.Error()
-			return
-		}
-	}
-	m.units[m.unit].Status = unitStatus
-	for i := range m.data.Units {
-		if m.data.Units[i].ID == u.ID {
-			m.data.Units[i].Status = unitStatus
-		}
-	}
-	m.status = fmt.Sprintf("unit %d: %s", m.unit+1, unitStatus)
-}
-
 func (m *Model) nextFlag(dir int) {
 	var targets []int
 	for i, f := range m.data.Flags {
@@ -483,9 +460,11 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.focus = paneWhy
 		}
 	case "u":
-		m.setStatus("understood")
+		m.markHunk("understood")
+	case "U":
+		m.markUnit()
 	case "x":
-		m.setStatus("questioned")
+		m.markHunk("questioned")
 	case "t":
 		m.prev, m.view = viewMain, viewTimeline
 	case "f":

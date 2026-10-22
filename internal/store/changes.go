@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/aaxis-em/xis/internal/model"
 )
@@ -225,6 +226,37 @@ func (s *Store) ListReviewUnits(changeID string) ([]model.ReviewUnit, error) {
 
 func (s *Store) SetReviewUnitStatus(id, status string) error {
 	return s.exec(`UPDATE review_units SET status = ? WHERE id = ?`, status, id)
+}
+
+// SetHunkStatus stores the review status of a hunk; "unreviewed" removes it.
+func (s *Store) SetHunkStatus(key, status string) error {
+	if status == "" || status == "unreviewed" {
+		return s.exec(`DELETE FROM hunk_status WHERE hunk_key = ?`, key)
+	}
+	return s.exec(`INSERT INTO hunk_status (hunk_key, status, updated_at) VALUES (?,?,?)
+		ON CONFLICT(hunk_key) DO UPDATE SET status = excluded.status, updated_at = excluded.updated_at`, key, status, ts(time.Now()))
+}
+
+func (s *Store) HunkStatuses(keys []string) (map[string]string, error) {
+	out := map[string]string{}
+	for len(keys) > 0 {
+		n := min(len(keys), 500)
+		rows, err := s.query(`SELECT hunk_key, status FROM hunk_status WHERE hunk_key IN (`+placeholders(n)+`)`, anyList(keys[:n])...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var k, st string
+			if err := rows.Scan(&k, &st); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			out[k] = st
+		}
+		rows.Close()
+		keys = keys[n:]
+	}
+	return out, nil
 }
 
 func (s *Store) PutQA(x model.QA) error {

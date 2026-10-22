@@ -53,7 +53,7 @@ func TestOpenPermissionsAndMigrations(t *testing.T) {
 	}
 	ms, err := s.Migrations()
 	must(t, err)
-	if len(ms) != 3 {
+	if len(ms) != 4 {
 		t.Errorf("migrations = %v", ms)
 	}
 	must(t, s.Check())

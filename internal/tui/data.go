@@ -41,10 +41,13 @@ type Data struct {
 	RepoTop     string
 	// LineSteps maps a file and a line of the new file to the step that wrote it.
 	LineSteps map[string]map[int]string
+	// HunkStatus maps a HunkKey to understood or questioned.
+	HunkStatus map[string]string
 }
 
 type Callbacks struct {
 	SetUnitStatus func(unitID, status string) error
+	SetHunkStatus func(hunkKey, status string) error
 	// Ask is nil when no LLM is configured.
 	Ask func(question string) (string, error)
 }

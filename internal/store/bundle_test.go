@@ -35,3 +35,23 @@ func TestAgentTextNearPrefersTheFile(t *testing.T) {
 		t.Error("mentions must match whole file names")
 	}
 }
+
+func TestHunkStatus(t *testing.T) {
+	s, err := Open(t.TempDir() + "/x.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for k, v := range map[string]string{"a": "understood", "b": "questioned", "c": "understood"} {
+		if err := s.SetHunkStatus(k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.SetHunkStatus("c", "unreviewed"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.HunkStatuses([]string{"a", "b", "c", "d"})
+	if err != nil || len(got) != 2 || got["a"] != "understood" || got["b"] != "questioned" {
+		t.Errorf("statuses = %v %v", got, err)
+	}
+}

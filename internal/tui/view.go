@@ -40,7 +40,8 @@ func (m *Model) header() string {
 	if strings.Contains(d.Status, "no_transcript") {
 		left += "· no transcript "
 	}
-	right := fmt.Sprintf(" %d high · %d med ", d.flagCount(model.SevHigh), d.flagCount(model.SevMedium))
+	p := m.progressOf(d.hunks())
+	right := fmt.Sprintf(" %d/%d understood · %d high · %d med ", p.understood, p.total, d.flagCount(model.SevHigh), d.flagCount(model.SevMedium))
 	fill := m.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if fill < 1 {
 		return m.st.header.Render(fit(left+right, m.width))
@@ -56,7 +57,7 @@ func (m *Model) footer() string {
 		return m.st.footer.Render(fit(" "+m.status, m.width))
 	}
 	keys := map[viewKind]string{
-		viewMain:     " j/k move  tab pane  p/P prompt  i full prompt  enter expand  u understood  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
+		viewMain:     " j/k move  tab pane  p/P prompt  i full prompt  enter expand  u/U understood (hunk/unit)  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
 		viewTimeline: " j/k move  enter open step  g/G top/bottom  esc back  q back",
 		viewStep:     " j/k scroll  enter jump to hunk  esc back",
 		viewFlags:    " j/k move  enter jump to hunk  esc back",
@@ -128,14 +129,15 @@ func (m *Model) promptPanel() []string {
 	return []string{m.st.focusTitle.Render(label) + text + m.st.dim.Render(hint)}
 }
 
-func statusGlyph(s string) string {
-	switch s {
-	case "understood":
-		return "✔"
-	case "questioned":
-		return "?"
+func (m *Model) progressGlyph(p progress) string {
+	g := p.glyph()
+	switch g {
+	case "✔":
+		return m.st.ok.Render(g)
+	case "?":
+		return m.st.warn.Render(g)
 	}
-	return " "
+	return g
 }
 
 func intentGlyph(s string) string {
@@ -169,8 +171,14 @@ func (m *Model) unitsPane(w, h int) []string {
 			marker = "▸"
 		}
 		flags := strings.Repeat("⚑", min(m.data.unitFlags(u), 3))
-		row := fmt.Sprintf("%s%s%d %s", marker, statusGlyph(u.Status), i+1, u.Title)
-		row = fit(row, w-len([]rune(flags))-1) + " " + m.st.high.Render(flags)
+		p := m.progressOf(u.Hunks)
+		count := ""
+		if p.partial() {
+			count = fmt.Sprintf("%d/%d", p.understood, p.total)
+		}
+		right := lipgloss.Width(flags) + len(count) + 1
+		row := fmt.Sprintf("%s%s%d %s", marker, m.progressGlyph(p), i+1, u.Title)
+		row = fit(row, w-right) + " " + m.st.dim.Render(count) + m.st.high.Render(flags)
 		if i == m.unit {
 			row = m.st.sel.Render(fit(row, w))
 		}
@@ -216,6 +224,12 @@ func (m *Model) diffPane(w, h int) []string {
 	}
 	u, _ := m.curUnit()
 	title := fmt.Sprintf("%s  [%s]  hunk %d/%d", hk.FilePath, hk.ChangeType, m.hunk+1, len(u.Hunks))
+	switch m.hunkStatus(hk) {
+	case "understood":
+		title += "  ✔ understood"
+	case "questioned":
+		title += "  ? questioned"
+	}
 	lines := []string{m.paneTitle(fit(title, w), paneDiff)}
 	header, _ := parseHunk(hk)
 	body := m.dimOtherPrompts(hk, m.hl.render(hk, m.st))
@@ -449,8 +463,9 @@ func (m *Model) viewHelp() []string {
 		{"g / G", "top / bottom"},
 		{"n / N", "next / previous flag"},
 		{"/", "search the hunks"},
-		{"u", "mark the unit as understood"},
-		{"x", "mark the unit as questioned"},
+		{"u", "mark the hunk as understood and go to the next hunk (again: clear)"},
+		{"U", "mark all hunks of the unit as understood (again: clear)"},
+		{"x", "mark the hunk as questioned (again: clear)"},
 		{"t", "timeline of the session"},
 		{"f", "list of flags"},
 		{"a", "ask a question (needs an LLM)"},

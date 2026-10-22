@@ -96,7 +96,7 @@ func TestNavigation(t *testing.T) {
 	if unit != 2 || hunk != 0 || focus != int(paneDiff) {
 		t.Errorf("selection = unit %d hunk %d focus %d", unit, hunk, focus)
 	}
-	want := []string{"u2=understood", "u3=questioned"}
+	want := []string{"u3=questioned"}
 	if strings.Join(saved, ",") != strings.Join(want, ",") {
 		t.Errorf("saved = %v", saved)
 	}
