@@ -57,6 +57,10 @@ func runHookInstall(cmd *cobra.Command, agent, scope, command string, add bool) 
 		return userErr("unknown agent "+agent, "Use --agent claude-code. Run `xis import codex` for Codex sessions.", nil)
 	}
 	home, _ := os.UserHomeDir()
+	if add && scope != "user" && capture.IsHome(a.RepoDir) {
+		return userErr("this folder is not in a git repository of its own; the nearest one is your home directory",
+			"Run `git init` in the project folder first. To record Claude Code sessions in every folder, use --scope user.", nil)
+	}
 	path, err := capture.SettingsPath(scope, a.RepoDir, home)
 	if err != nil {
 		return userErr(err.Error(), "Run the command in a repository, or use --scope user.", err)

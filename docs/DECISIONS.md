@@ -416,3 +416,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** In a long real session, 17 of 19 high flags were false. The command rules searched the full command text, including heredoc bodies and quoted text. A test fixture with `.env.local`, a commit message and a `sed` pattern counted as commands. The message showed the start of the command, not the match.
 - **Choice:** The package `shellcmd` removes heredoc bodies, and for the command rules also the text in quotes. A script after `sh -c`, `bash -c`, `eval` or `ssh` stays, because the shell runs it. The message shows the simple command that matched. An `rm` of paths in `/tmp` only is not destructive. `TEST_SKIPPED` reads test files only, because `pending` is a common word in code.
 - **Why:** A high flag must point to a real action. Too many false flags teach the user to ignore all flags.
+
+## D70. A git repository in the home directory
+
+- **Context:** A user ran `xis hook install` in `~/test`, which had no repository. The home directory was a repository with no commits. xis took it as the project, and its `.claude/settings.json` is the user settings file. So the hooks ran in every folder. A snapshot of the home directory took more than 10 seconds, and Claude Code stopped the hook.
+- **Choice:** `xis hook install` with project scope stops with an error if the repository is the home directory. The hook does not take a snapshot of such a repository. It writes a snapshot error, so the session gets steps without edits.
+- **Why:** A snapshot of the home directory is slow, and it would copy all files of the user into the shadow repository.

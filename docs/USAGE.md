@@ -52,6 +52,8 @@ Next steps:
 
 The command adds the xis hooks to the Claude Code settings. The default scope is `project` (`.claude/settings.json` in the repository). Use `--scope user` for `~/.claude/settings.json`.
 
+If your home directory is a git repository, a folder without its own repository belongs to it. Then `xis hook install` stops with an error, because the project settings would be your user settings. Run `git init` in the project folder first. xis also never takes a snapshot of a repository in your home directory. A session there gets steps, but no edits.
+
 ```console
 $ xis hook install --agent claude-code
 /work/repo/.claude/settings.json:

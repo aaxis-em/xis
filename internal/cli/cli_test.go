@@ -2,6 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -85,5 +88,25 @@ func TestDoctorRuns(t *testing.T) {
 		if !strings.Contains(out, w) {
 			t.Errorf("doctor output misses %s:\n%s", w, out)
 		}
+	}
+}
+
+func TestHookInstallRefusesTheHomeRepository(t *testing.T) {
+	isolate(t)
+	home := t.TempDir()
+	if out, err := exec.Command("git", "-C", home, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+	sub := filepath.Join(home, "test")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	out, err := run(t, "hook", "install", "--agent", "claude-code", "--repo", sub)
+	if err == nil || !strings.Contains(err.Error()+out, "home directory") {
+		t.Errorf("install in the home repository: %v %s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); !os.IsNotExist(err) {
+		t.Error("settings were written")
 	}
 }

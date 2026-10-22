@@ -112,6 +112,10 @@ func (h *Handler) snapshot(line *Line, sid, event string, p claudecode.HookPaylo
 		line.SnapshotError = firstLine(err.Error())
 		return
 	}
+	if IsHome(repo.Top) {
+		line.SnapshotError = "the git repository is the home directory; xis does not snapshot it"
+		return
+	}
 	sh, err := snapshot.Open(h.Paths.Shadow, repo, h.Cfg.Capture.Exclude)
 	if err != nil {
 		line.SnapshotError = firstLine(err.Error())

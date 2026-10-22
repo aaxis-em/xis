@@ -316,3 +316,21 @@ func TestHooksDoNotWaitForIngest(t *testing.T) {
 		t.Error("lock file removed with the spool")
 	}
 }
+
+func TestNoSnapshotOfTheHomeRepository(t *testing.T) {
+	h, _ := newHandler(t)
+	repo := newRepo(t)
+	t.Setenv("HOME", repo)
+	sub := filepath.Join(repo, "test")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	h.Handle("UserPromptSubmit", strings.NewReader(payload("s1", sub, "UserPromptSubmit", "", "")))
+	lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "s1"))
+	if err != nil || len(lines) != 1 {
+		t.Fatalf("%d lines, %v", len(lines), err)
+	}
+	if lines[0].Snapshot != nil || !strings.Contains(lines[0].SnapshotError, "home directory") {
+		t.Errorf("line = %+v", lines[0])
+	}
+}

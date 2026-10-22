@@ -23,6 +23,23 @@ func hookTimeout(event string) int {
 	return 10
 }
 
+// IsHome reports whether dir is the home directory. A git repository there
+// holds all files of the user, so xis neither installs project hooks for
+// it nor takes snapshots of it.
+func IsHome(dir string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" || dir == "" {
+		return false
+	}
+	if h, err := filepath.EvalSymlinks(home); err == nil {
+		home = h
+	}
+	if d, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = d
+	}
+	return filepath.Clean(dir) == filepath.Clean(home)
+}
+
 func SettingsPath(scope, repoDir, home string) (string, error) {
 	switch scope {
 	case "", "project":
