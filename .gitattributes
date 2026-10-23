@@ -1,0 +1,5 @@
+# Keep LF in every text file on every OS. On Windows, git converts to CRLF
+# by default, which breaks the shell scripts and the golden test files.
+* text=auto eol=lf
+*.png binary
+*.ico binary
