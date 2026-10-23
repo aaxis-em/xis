@@ -144,6 +144,8 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for the full data flow.
 
 ## License
 
+Copyright 2026 [Aaxis-em](https://github.com/aaxis-em).
+
 The [Apache License 2.0](LICENSE) applies to xis. See also [NOTICE](NOTICE).
 
 The name xis and the xis logo are not covered by the license.
