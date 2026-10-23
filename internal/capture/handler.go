@@ -7,12 +7,12 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/snapshot"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 const maxPayloadBytes = 64 << 20
@@ -110,7 +110,7 @@ func (h *Handler) snapshot(line *Line, sid, event string, p claudecode.HookPaylo
 		return
 	}
 	if err != nil {
-		line.SnapshotError = firstLine(err.Error())
+		line.SnapshotError = textx.FirstLine(err.Error())
 		return
 	}
 	if IsHome(repo.Top) {
@@ -119,7 +119,7 @@ func (h *Handler) snapshot(line *Line, sid, event string, p claudecode.HookPaylo
 	}
 	sh, err := snapshot.Open(h.Paths.Shadow, repo, h.Cfg.Capture.Exclude)
 	if err != nil {
-		line.SnapshotError = firstLine(err.Error())
+		line.SnapshotError = textx.FirstLine(err.Error())
 		return
 	}
 	info := &RepoInfo{ID: repo.ID, Top: repo.Top, CommonDir: repo.CommonDir}
@@ -134,13 +134,8 @@ func (h *Handler) snapshot(line *Line, sid, event string, p claudecode.HookPaylo
 	}
 	commit, err := sh.Take(sid, label)
 	if err != nil {
-		line.SnapshotError = firstLine(err.Error())
+		line.SnapshotError = textx.FirstLine(err.Error())
 		return
 	}
 	line.Snapshot = &commit
-}
-
-func firstLine(s string) string {
-	s, _, _ = strings.Cut(s, "\n")
-	return s
 }

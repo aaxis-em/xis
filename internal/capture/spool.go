@@ -79,14 +79,6 @@ func AppendLine(spoolDir, sessionID string, l Line) error {
 	return cerr
 }
 
-func ReadSpool(path string) ([]Line, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return parseSpool(path, b)
-}
-
 func parseSpool(path string, b []byte) ([]Line, error) {
 	var out []Line
 	sc := bufio.NewScanner(bytes.NewReader(b))

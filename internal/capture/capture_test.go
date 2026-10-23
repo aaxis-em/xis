@@ -79,7 +79,7 @@ func TestHandlerSnapshotsAndSpool(t *testing.T) {
 	h.Handle("PostToolUse", strings.NewReader(payload("s1", repo, "PostToolUse", "Edit", "t2")))
 	h.Handle("Stop", strings.NewReader(payload("s1", repo, "Stop", "", "")))
 
-	lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "s1"))
+	lines, err := readSpool(SpoolPath(h.Paths.Spool, "s1"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestHandlerSafety(t *testing.T) {
 	t.Run("non-git marks no_git", func(t *testing.T) {
 		h, _ := newHandler(t)
 		h.Handle("UserPromptSubmit", strings.NewReader(payload("s4", t.TempDir(), "UserPromptSubmit", "", "")))
-		lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "s4"))
+		lines, err := readSpool(SpoolPath(h.Paths.Spool, "s4"))
 		if err != nil || len(lines) != 1 || !lines[0].NoGit || lines[0].Snapshot != nil {
 			t.Fatalf("lines=%+v err=%v", lines, err)
 		}
@@ -147,7 +147,7 @@ func TestHandlerSafety(t *testing.T) {
 	t.Run("malformed payload kept as string", func(t *testing.T) {
 		h, _ := newHandler(t)
 		h.Handle("Stop", strings.NewReader("{bad"))
-		lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "unknown"))
+		lines, err := readSpool(SpoolPath(h.Paths.Spool, "unknown"))
 		if err != nil || len(lines) != 1 || string(lines[0].Payload) != `"{bad"` {
 			t.Fatalf("lines=%+v err=%v", lines, err)
 		}
@@ -165,7 +165,7 @@ func TestConcurrentAppend(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "c"))
+	lines, err := readSpool(SpoolPath(h.Paths.Spool, "c"))
 	if err != nil || len(lines) != 40 {
 		t.Fatalf("lines=%d err=%v", len(lines), err)
 	}
@@ -303,7 +303,7 @@ func TestHooksDoNotWaitForIngest(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Release()
-	rest, err := ReadSpool(SpoolPath(spool, "s1"))
+	rest, err := readSpool(SpoolPath(spool, "s1"))
 	if err != nil || len(rest) != 1 || rest[0].Event != "PreToolUse" {
 		t.Fatalf("after drop: %+v %v", rest, err)
 	}
@@ -330,7 +330,7 @@ func TestNoSnapshotOfTheHomeRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.Handle("UserPromptSubmit", strings.NewReader(payload("s1", sub, "UserPromptSubmit", "", "")))
-	lines, err := ReadSpool(SpoolPath(h.Paths.Spool, "s1"))
+	lines, err := readSpool(SpoolPath(h.Paths.Spool, "s1"))
 	if err != nil || len(lines) != 1 {
 		t.Fatalf("%d lines, %v", len(lines), err)
 	}
@@ -381,4 +381,12 @@ func TestCodexHooksInstall(t *testing.T) {
 	if got, _ := Installed(path); len(got) != 0 {
 		t.Errorf("hooks left after uninstall: %v", got)
 	}
+}
+
+func readSpool(path string) ([]Line, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseSpool(path, b)
 }

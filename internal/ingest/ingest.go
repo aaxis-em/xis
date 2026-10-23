@@ -81,6 +81,7 @@ func (in *Ingester) IngestSpool(agentSessionID string) (Result, error) {
 	return res, nil
 }
 
+// shortcut: rebuilds the whole session from all events and the full transcript on each ingest, make it incremental when sessions pass about 50 MB.
 func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Result, error) {
 	agent := claudecode.Agent
 	for _, l := range lines {
