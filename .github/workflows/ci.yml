@@ -24,6 +24,9 @@ jobs:
       - name: Vet the Windows build
         if: runner.os == 'Linux'
         run: GOOS=windows go vet ./...
+      - name: Check the binary size
+        if: runner.os == 'Linux'
+        run: sh scripts/check-size.sh
       - uses: golangci/golangci-lint-action@v8
         if: runner.os != 'Windows'
         with:

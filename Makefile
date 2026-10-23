@@ -13,7 +13,7 @@ GOLANGCI := $(shell command -v golangci-lint 2>/dev/null || echo $(GOBIN)/golang
 
 export CGO_ENABLED = 0
 
-.PHONY: help build install test race lint vet docs-lint check e2e fixtures fixtures-update bench snapshot install-test clean
+.PHONY: help build install test race lint vet docs-lint check e2e fixtures fixtures-update bench snapshot install-test size clean
 
 help: ## Show the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -60,6 +60,9 @@ fixtures-update: ## Regenerate the golden files
 
 snapshot: ## Build a local release with GoReleaser
 	goreleaser release --snapshot --clean -p 2
+
+size: ## Check that no code keeps all methods in the binary
+	sh scripts/check-size.sh
 
 install-test: ## Test install.sh against a local release server
 	sh scripts/test-install.sh

@@ -10,7 +10,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/glamour"
 
 	"github.com/aaxis-em/xis/internal/model"
 )
@@ -72,16 +71,15 @@ type Model struct {
 	citeSel   int
 	asking    bool
 
-	status  string
-	keys    map[string]string
-	Editor  func(file string, line int) *exec.Cmd
-	mdStyle string
+	status string
+	keys   map[string]string
+	Editor func(file string, line int) *exec.Cmd
 }
 
 func New(d *Data, cb Callbacks, color bool) *Model {
 	in := textinput.New()
 	in.CharLimit = 500
-	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, mdStyle: "dark", prompt: -1}
+	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, prompt: -1}
 	m.turns = buildTurns(d)
 	m.all = d.hunks()
 	m.applyPrompt()
@@ -356,19 +354,11 @@ func (m *Model) setAnswer(text string) {
 			m.citations = append(m.citations, citation{c[1], c[2]})
 		}
 	}
-	rendered := text
-	if m.color {
-		if r, err := glamour.NewTermRenderer(glamour.WithStandardStyle(m.mdStyle), glamour.WithWordWrap(max(m.width-4, 20))); err == nil {
-			if out, err := r.Render(text); err == nil {
-				rendered = out
-			}
-		}
-	}
 	q := m.answer
 	if len(q) > 2 {
 		q = q[:2]
 	}
-	m.answer = append(q, strings.Split(strings.TrimRight(rendered, "\n"), "\n")...)
+	m.answer = append(q, m.renderMarkdown(text, m.width-4)...)
 	m.citeSel = 0
 }
 

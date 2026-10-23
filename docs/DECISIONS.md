@@ -464,3 +464,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The repository was public without a license. The user first chose the PolyForm Noncommercial License, then MIT, and then the Apache License 2.0. The release archives hold the code of more than 100 Go modules, and their licenses require their notices in each copy.
 - **Choice:** `LICENSE` is the unchanged Apache License 2.0 text from apache.org. `NOTICE` holds the copyright of xis. Before each release, `scripts/notices.sh` collects the license files of all modules in the binary into `THIRD_PARTY_NOTICES.txt`. The script stops if a module has no license file. The archives hold `LICENSE`, `NOTICE` and that file.
 - **Why:** Apache 2.0 keeps xis open source. Its patent grant helps companies to accept it, and section 6 gives no rights to the name or the logo. The notices file meets the conditions of the module licenses.
+
+## D78. No Markdown library in the review UI
+
+- **Context:** The release binary was 47 MB, and a slow connection took minutes for the install. The review UI used glamour for the Markdown of LLM answers. glamour runs `text/template`, and that package calls methods by reflection. Then the Go linker must keep every exported method of every type, for example the full Anthropic SDK.
+- **Choice:** A small renderer in `internal/tui` formats the answers: headings, lists, code blocks, bold text and code spans. `scripts/check-size.sh` fails in CI when the binary calls methods by reflection again.
+- **Why:** The binary went from 46.7 MB to 26.6 MB, and the download from 14.9 MB to 9.4 MB. Answers are short text with citations, so the small renderer is enough.

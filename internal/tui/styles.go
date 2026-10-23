@@ -9,7 +9,7 @@ import (
 )
 
 type styles_ struct {
-	header, brand, footer, title, dim, sel, focusTitle, add, del, high, medium, low, info, ok, warn, quote lipgloss.Style
+	header, brand, footer, title, dim, sel, focusTitle, add, del, high, medium, low, info, ok, warn, quote, code lipgloss.Style
 }
 
 // brandAccent is the orange of the xis mark in assets/logo.
@@ -21,7 +21,7 @@ func newStyles(color bool) styles_ {
 		plain := lipgloss.NewStyle()
 		return styles_{header: plain.Bold(true), brand: plain.Bold(true), footer: plain, title: plain.Bold(true), dim: plain, sel: plain.Reverse(true),
 			focusTitle: plain.Bold(true).Underline(true), add: plain, del: plain, high: plain.Bold(true), medium: plain, low: plain,
-			info: plain, ok: plain, warn: plain.Bold(true), quote: plain.Italic(true)}
+			info: plain, ok: plain, warn: plain.Bold(true), quote: plain.Italic(true), code: plain}
 	}
 	return styles_{
 		header:     lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("236")),
@@ -29,6 +29,7 @@ func newStyles(color bool) styles_ {
 		title:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252")),
 		dim:        lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
 		brand:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(brandAccent)).Background(lipgloss.Color("236")),
+		code:       lipgloss.NewStyle().Foreground(lipgloss.Color("180")),
 		sel:        lipgloss.NewStyle().Background(lipgloss.Color("238")).Foreground(lipgloss.Color("15")),
 		focusTitle: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39")),
 		add:        lipgloss.NewStyle().Foreground(lipgloss.Color("2")),

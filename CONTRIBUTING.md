@@ -21,6 +21,7 @@ Other targets:
 | `make docs-lint` | Check the documents against the writing rules (warns only). |
 | `make snapshot` | Build a local release with GoReleaser. |
 | `make install-test` | Test `install.sh` against a local release server. |
+| `make size` | Check that no dependency makes the binary keep all methods. |
 | `pwsh scripts/test-install.ps1` | Test `install.ps1` against a local release server. |
 
 The tests need a git identity only inside their own temporary repositories. They set it there.
