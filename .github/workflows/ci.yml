@@ -56,7 +56,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: pwsh -NoLogo -NoProfile -File scripts/test-install.ps1
+      - name: Test install.ps1 with PowerShell 7
+        run: pwsh -NoLogo -NoProfile -File scripts/test-install.ps1
+      - name: Test install.ps1 with Windows PowerShell 5.1
+        run: pwsh -NoLogo -NoProfile -File scripts/test-install.ps1
+        env:
+          XIS_TEST_SHELL: powershell
   cross:
     runs-on: ubuntu-latest
     steps:

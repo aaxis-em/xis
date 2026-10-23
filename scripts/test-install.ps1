@@ -1,7 +1,11 @@
 # Tests install.ps1 against a local server that serves a release the way
 # GitHub does. Runs with PowerShell 7 on Windows, and on Linux and macOS too:
 # there it checks everything but the PATH change and the run of xis.exe.
+# XIS_TEST_SHELL picks the PowerShell that runs install.ps1, for example
+# powershell for Windows PowerShell 5.1.
 $ErrorActionPreference = 'Stop'
+$shell = 'pwsh'
+if ($env:XIS_TEST_SHELL) { $shell = $env:XIS_TEST_SHELL }
 
 $root = Split-Path -Parent $PSScriptRoot
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("xis-ps-test-" + [Guid]::NewGuid())
@@ -56,7 +60,7 @@ s.serve_forever()
 	function Install($dir, $ver) {
 		$env:XIS_BASE_URL = $base; $env:XIS_INSTALL_DIR = $dir; $env:XIS_ARCH = 'amd64'; $env:XIS_NO_PATH = '1'
 		$env:XIS_VERSION = $ver
-		$out = & pwsh -NoLogo -NoProfile -File (Join-Path $root 'install.ps1') 2>&1
+		$out = & $shell -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'install.ps1') 2>&1
 		return @{ Ok = ($LASTEXITCODE -eq 0); Out = ($out -join "`n") }
 	}
 	function Check($name, $cond, $detail) {
