@@ -148,7 +148,10 @@ func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Re
 	} else if known {
 		tr.Session.RepoID, tr.Session.BaseCommit = existing.RepoID, existing.BaseCommit
 	}
-	if known && tr.Session.BaseCommit == "" {
+	// The base is the HEAD at the first start of the session. Claude Code
+	// sends SessionStart again on resume and after compaction, with a later
+	// HEAD, and that must not move the base.
+	if known && existing.BaseCommit != "" {
 		tr.Session.BaseCommit = existing.BaseCommit
 	}
 
@@ -166,6 +169,12 @@ func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Re
 		sh, err := snapshot.Open(in.Paths.Shadow, r, in.Cfg.Capture.Exclude)
 		if err != nil {
 			return Result{}, fmt.Errorf("open shadow repository: %w", err)
+		}
+		// The first snapshot has the HEAD at the start of capture as its
+		// parent. It never changes, so it also repairs a base that an older
+		// xis moved on resume or compaction.
+		if p, err := sh.Git().Run("rev-parse", "--verify", "-q", tr.Session.BaseSnapshot+"^"); err == nil && tr.Session.BaseSnapshot != "" {
+			tr.Session.BaseCommit = strings.TrimSpace(p)
 		}
 		if err := in.deriveEdits(sh, &tr, in.preSessionBase(&tr)); err != nil {
 			tr.Warnings = append(tr.Warnings, "edits: "+err.Error())

@@ -440,3 +440,15 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The user wanted to install xis with one `curl` command. GoReleaser built the archives, but no workflow published them. The release was a draft, and the Homebrew step failed without its token.
 - **Choice:** A tag `v*` starts `.github/workflows/release.yml`, which runs the tests and GoReleaser. GoReleaser publishes the release directly, without a draft. The cask step runs only when `HOMEBREW_TAP_GITHUB_TOKEN` is set. `install.sh` finds the release, downloads the archive for the system, checks its SHA-256 against `checksums.txt` and installs the binary in `~/.local/bin`. CI tests the script on Linux and macOS against a local release server.
 - **Why:** A draft release is not the latest release, and a download from it needs a login. The checksum check stops a damaged or changed download. The test runs the real script, so a change of the archive names in GoReleaser fails CI.
+
+## D74. Scrolling lists in the UNITS pane
+
+- **Context:** A real session had 42 prompts. The PROMPTS list did not scroll, so `p` moved the selection out of the pane. The units list scrolled in fixed steps, and it did not show hidden items.
+- **Choice:** The units and the prompts are lists that keep the selection visible, in the center when the list scrolls. A dim line `↑ N more` or `↓ N more` replaces the first or the last row when items are hidden. Both lists share the free lines. A list that fits gets all its rows, and the prompts get up to two fifths otherwise.
+- **Why:** The selected item must always be on the screen, and the user must see that the list continues.
+
+## D75. Base commit of a session
+
+- **Context:** Claude Code sends `SessionStart` again on resume and after compaction. Each event recorded the current `HEAD`, and ingest took it as the base of the session. A real two-day session got a base from the last hour. Its change lost the earlier work, and most prompts showed 0 hunks.
+- **Choice:** The base commit is the parent of the first snapshot of the session. That snapshot never changes. Without it, a stored base stays and a later `HEAD` never replaces it.
+- **Why:** The first snapshot has the `HEAD` at the start of capture as its parent, so it is the true base. A re-ingest also repairs a base that an older xis moved.

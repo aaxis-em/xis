@@ -703,3 +703,61 @@ func TestE2EDefaultSessionIsTheLatestActive(t *testing.T) {
 		t.Errorf("default session is not the latest active one:\n%s %v", out, err)
 	}
 }
+
+func TestE2EBaseStaysAfterCompaction(t *testing.T) {
+	s := newScenario(t)
+	head := func() string {
+		out, err := exec.Command("git", "-C", s.repo, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	first := head()
+	s.hook("SessionStart", map[string]any{"source": "startup"})
+	s.prompt("Fix Add.")
+	s.tool("t1-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "calc.go")}, func() { s.write("calc.go", calcFixed) }, "", 0)
+	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+	if out, err := exec.Command("sh", "-c", "cd \"$0\" && git commit -qam fix", s.repo).CombinedOutput(); err != nil {
+		t.Fatalf("%v %s", err, out)
+	}
+
+	s.hook("SessionStart", map[string]any{"source": "compact"})
+	s.prompt("Now add Sub.")
+	s.tool("t2-edit", "Edit", map[string]any{"file_path": filepath.Join(s.repo, "sub.go")}, func() { s.write("sub.go", "package calc\n\nfunc Sub(a, b int) int { return a - b }\n") }, "", 0)
+	s.hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+
+	st := openTestStore(t)
+	sess, err := st.FindSession("claude-code", s.session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sess.BaseCommit != first {
+		t.Errorf("base commit moved from %s to %s after compaction", first, sess.BaseCommit)
+	}
+	app := &App{Paths: config.DefaultPaths(), Cfg: config.Default(), RepoDir: s.repo}
+	_, res, err := app.computeChange(st, attribution.Options{Mode: attribution.ModeSession})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := provenanceByFile(t, st, res); got["calc.go"] == nil || got["sub.go"] == nil {
+		t.Errorf("the change lost the work before the compaction: %v", got)
+	}
+
+	sess.BaseCommit = head()
+	if err := st.PutSession(sess); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := run(t, "ingest", "--session", s.session); err != nil {
+		t.Fatalf("ingest: %v %s", err, out)
+	}
+	if again, _ := st.FindSession("claude-code", s.session); again.BaseCommit != first {
+		t.Errorf("a moved base was not repaired: %s, want %s", again.BaseCommit, first)
+	}
+}

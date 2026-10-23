@@ -247,6 +247,8 @@ You mark each hunk. The mark in front of a unit shows its progress:
 | `✔` | All hunks are understood. |
 | `?` | One or more hunks are questioned. |
 
+Long lists of units and prompts scroll with the selection. A line such as `↑ 6 more` or `↓ 14 more` tells how many items are hidden.
+
 The header shows the understood hunks of the change, for example `12/40 understood`. xis keeps the status of a hunk while the file and the lines of the hunk stay the same. Thus an edit in another part of the file does not clear it. `xis report` and `xis note` count a unit as understood when all its hunks are understood.
 
 The layout depends on the terminal width:

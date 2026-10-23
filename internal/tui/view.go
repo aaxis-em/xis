@@ -158,51 +158,115 @@ func (m *Model) unitsPane(w, h int) []string {
 	if t, ok := m.curTurn(); ok {
 		title = fmt.Sprintf("UNITS · prompt #%d", t.prompt.Seq)
 	}
+	var intent []string
+	if n := len(m.data.Intent); n > 0 {
+		intent = append(intent, m.st.title.Render("INTENT"))
+		for i, it := range m.data.Intent[:min(n, maxIntentRows)] {
+			intent = append(intent, fmt.Sprintf("%s #%d %s", intentGlyph(it.Status), i+1, oneLine(it.Text, w)))
+		}
+		if n > maxIntentRows {
+			intent = append(intent, m.st.dim.Render(fmt.Sprintf("  … %d more", n-maxIntentRows)))
+		}
+		intent = append(intent, "")
+	}
+	prompts := len(m.turns) + 1
+	if len(m.turns) == 0 {
+		prompts = 1
+	}
+	unitsH, promptsH := splitHeight(h-3-len(intent), max(len(m.units), 1), prompts)
+
 	lines := []string{m.paneTitle(title, paneUnits)}
 	if len(m.units) == 0 {
 		lines = append(lines, m.st.dim.Render("no changes"))
-	}
-	// Only the units around the selection are rendered.
-	listH := max(h/2, 3)
-	start := max(0, m.unit-listH+2)
-	for i := start; i < len(m.units) && i < start+listH; i++ {
-		u := m.units[i]
-		marker := " "
-		if i == m.unit {
-			marker = "▸"
-		}
-		flags := strings.Repeat("⚑", min(m.data.unitFlags(u), 3))
-		p := m.progressOf(u.Hunks)
-		count := ""
-		if p.partial() {
-			count = fmt.Sprintf("%d/%d", p.understood, p.total)
-		}
-		right := lipgloss.Width(flags) + len(count) + 1
-		row := fmt.Sprintf("%s%s%d %s", marker, m.progressGlyph(p), i+1, u.Title)
-		row = fit(row, w-right) + " " + m.st.dim.Render(count) + m.st.high.Render(flags)
-		if i == m.unit {
-			row = m.st.sel.Render(fit(row, w))
-		}
-		lines = append(lines, row)
+	} else {
+		lines = append(lines, m.listRows(len(m.units), m.unit, unitsH, func(i int) string { return m.unitRow(i, w) })...)
 	}
 	lines = append(lines, "")
-	if len(m.data.Intent) > 0 {
-		lines = append(lines, m.st.title.Render("INTENT"))
-		for i, it := range m.data.Intent {
-			lines = append(lines, fmt.Sprintf("%s #%d %s", intentGlyph(it.Status), i+1, oneLine(it.Text, w)))
-		}
-		lines = append(lines, "")
-	}
+	lines = append(lines, intent...)
 	lines = append(lines, m.st.title.Render("PROMPTS (p/P)"))
 	if len(m.turns) == 0 {
 		lines = append(lines, m.st.dim.Render("none recorded"))
 	} else {
-		lines = append(lines, m.promptRow(-1, "All prompts", len(m.all), w))
-		for i, t := range m.turns {
-			lines = append(lines, m.promptRow(i, fmt.Sprintf("#%d %s", t.prompt.Seq, t.prompt.Text), t.hunks, w))
-		}
+		lines = append(lines, m.listRows(prompts, m.prompt+1, promptsH, func(i int) string {
+			if i == 0 {
+				return m.promptRow(-1, "All prompts", len(m.all), w)
+			}
+			t := m.turns[i-1]
+			return m.promptRow(i-1, fmt.Sprintf("#%d %s", t.prompt.Seq, t.prompt.Text), t.hunks, w)
+		})...)
 	}
 	return block(lines, w, h, 0)
+}
+
+const maxIntentRows = 5
+
+// splitHeight shares the free lines between the units and the prompts. Both
+// lists get all their rows when they fit; else the prompts get up to two
+// fifths, and a list that needs less gives the rest to the other.
+func splitHeight(free, units, prompts int) (int, int) {
+	free = max(free, 2)
+	if units+prompts <= free {
+		return units, prompts
+	}
+	p := min(prompts, max(3, free*2/5))
+	u := max(free-p, 1)
+	if units < u {
+		p, u = min(prompts, p+u-units), units
+	}
+	return u, max(min(p, free-u), 1)
+}
+
+// listRows renders the rows of a list of n items in size lines and keeps
+// item sel visible. A line at the top or the bottom tells how many items are
+// hidden there.
+func (m *Model) listRows(n, sel, size int, row func(int) string) []string {
+	start, end := 0, n
+	above, below := false, false
+	switch {
+	case n <= size:
+	case size < 3:
+		start = max(0, min(sel-size/2, n-size))
+		end = start + size
+	case sel <= (size-1)/2:
+		end, below = size-1, true
+	case sel >= n-1-size/2:
+		start, above = n-size+1, true
+	default:
+		start, above, below = sel-(size-2)/2, true, true
+		end = start + size - 2
+	}
+	var out []string
+	if above {
+		out = append(out, m.st.dim.Render(fmt.Sprintf("  ↑ %d more", start)))
+	}
+	for i := start; i < end; i++ {
+		out = append(out, row(i))
+	}
+	if below {
+		out = append(out, m.st.dim.Render(fmt.Sprintf("  ↓ %d more", n-end)))
+	}
+	return out
+}
+
+func (m *Model) unitRow(i, w int) string {
+	u := m.units[i]
+	marker := " "
+	if i == m.unit {
+		marker = "▸"
+	}
+	flags := strings.Repeat("⚑", min(m.data.unitFlags(u), 3))
+	p := m.progressOf(u.Hunks)
+	count := ""
+	if p.partial() {
+		count = fmt.Sprintf("%d/%d", p.understood, p.total)
+	}
+	right := lipgloss.Width(flags) + len(count) + 1
+	row := fmt.Sprintf("%s%s%d %s", marker, m.progressGlyph(p), i+1, u.Title)
+	row = fit(row, w-right) + " " + m.st.dim.Render(count) + m.st.high.Render(flags)
+	if i == m.unit {
+		row = m.st.sel.Render(fit(row, w))
+	}
+	return row
 }
 
 func (m *Model) promptRow(i int, text string, hunks int, w int) string {
