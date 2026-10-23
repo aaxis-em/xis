@@ -18,6 +18,7 @@ import (
 const maxPayloadBytes = 64 << 20
 
 type Handler struct {
+	Agent string
 	Paths config.Paths
 	Cfg   config.Config
 	Now   func() time.Time
@@ -60,7 +61,7 @@ func (h *Handler) handle(event string, stdin io.Reader) error {
 		sid = "unknown"
 	}
 
-	line := Line{V: SpoolVersion, Ts: start.UTC(), Event: event, Payload: raw}
+	line := Line{V: SpoolVersion, Agent: h.Agent, Ts: start.UTC(), Event: event, Payload: raw}
 	lock, lerr := LockSession(h.Paths.Spool, sid, 3*time.Second)
 	if lerr != nil {
 		slog.Warn("hook lock", "event", event, "session", sid, "err", lerr.Error())

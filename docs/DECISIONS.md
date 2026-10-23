@@ -471,6 +471,12 @@ This log records each decision that the specification does not settle. Each entr
 - **Choice:** A small renderer in `internal/tui` formats the answers: headings, lists, code blocks, bold text and code spans. `scripts/check-size.sh` fails in CI when the binary calls methods by reflection again.
 - **Why:** The binary went from 46.7 MB to 26.6 MB, and the download from 14.9 MB to 9.4 MB. Answers are short text with citations, so the small renderer is enough.
 
+## D79. Live capture of Codex sessions
+
+- **Context:** Codex sessions came only from `xis import codex`. Each prompt after an import was missing until the next import, and an import has no snapshots. Codex CLI 0.164 has hooks in the format of Claude Code.
+- **Choice:** `xis hook install --agent codex` writes the xis hooks to `.codex/hooks.json`. The hook handler, the spool and the snapshots are the same as for Claude Code. Each spool line has `"agent":"codex"`. Ingest builds the steps from the hook events, then adds the agent text and the exit codes from the rollout. xis does not write the Codex hook approval. The user approves the hooks in Codex once.
+- **Why:** The shared code keeps the change small, and the snapshots attribute edits by shell commands too. The approval hash depends on Codex internals, and the approval is a decision of the user.
+
 ## D80. User PATH on Windows
 
 - **Context:** `install.ps1` read the user PATH with `[Environment]::GetEnvironmentVariable` and wrote it with `SetEnvironmentVariable`. The first expands entries such as `%JAVA_HOME%\bin`, and the second stores the result as plain text. So each install froze the variables in the PATH of the user.
@@ -500,3 +506,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The review UI loaded its data once. A new prompt or edit of the agent appeared only after the user closed and opened the UI again.
 - **Choice:** Every 2 seconds, the UI checks the spool file and the end time of each session in the change. If one changed, the UI analyzes the change again in the background, which ingests the new events first. Then it swaps the data and keeps the selected hunk, matched by `HunkKey`, and the selected prompt. A review without a session argument keeps the session that it opened.
 - **Why:** The checks cost a file stat and a query, so the UI does the expensive analysis only after new events. The hooks stay unchanged.
+
+## D85. Codex code mode and a second ingest
+
+- **Context:** A real Codex 0.164 session showed each command twice. In code mode, the rollout has one `exec` call with a script, and the hooks report the tool that the script calls, with another ID. Also, an ingest without new spool lines took the session as a Claude Code session. So a second ingest of a Codex session failed with "no events".
+- **Choice:** Live ingest skips the `exec` calls of the rollout. Without new spool lines, ingest takes the agent of the stored session.
+- **Why:** The hooks already give each command with its tool name and input. A second ingest must work for each agent, for example for `xis ingest --session` or a live review.

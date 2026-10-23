@@ -8,15 +8,16 @@ import (
 	"regexp"
 
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/pathx"
 )
 
 // hookRe finds an xis hook command, also in the Windows form
 // "C:/.../xis.exe" hook claude-code.
-var hookRe = regexp.MustCompile(`xis(\.exe)?["']?\s+hook\s+claude-code`)
+var hookRe = regexp.MustCompile(`xis(\.exe)?["']?\s+hook\s+(claude-code|codex)\b`)
 
-func HookCommand(xisCmd, event string) string {
-	return fmt.Sprintf("%s hook claude-code %s", xisCmd, event)
+func HookCommand(xisCmd, agent, event string) string {
+	return fmt.Sprintf("%s hook %s %s", xisCmd, agent, event)
 }
 
 func hookTimeout(event string) int {
@@ -43,15 +44,22 @@ func IsHome(dir string) bool {
 	return pathx.Same(dir, home)
 }
 
-func SettingsPath(scope, repoDir, home string) (string, error) {
+// SettingsPath is the file that holds the hooks of the agent: the settings of
+// Claude Code, or the hooks.json of Codex.
+func SettingsPath(agent, scope, repoDir, home string) (string, error) {
+	dir, file := ".claude", "settings.json"
+	userDir := filepath.Join(home, dir)
+	if agent == codex.Agent {
+		dir, file, userDir = ".codex", "hooks.json", codex.Home()
+	}
 	switch scope {
 	case "", "project":
 		if repoDir == "" {
 			return "", fmt.Errorf("project scope needs a git repository")
 		}
-		return filepath.Join(repoDir, ".claude", "settings.json"), nil
+		return filepath.Join(repoDir, dir, file), nil
 	case "user":
-		return filepath.Join(home, ".claude", "settings.json"), nil
+		return filepath.Join(userDir, file), nil
 	}
 	return "", fmt.Errorf("unknown scope %q (use project or user)", scope)
 }
@@ -114,9 +122,10 @@ func newEntry(cmd string, timeout int) *object {
 	return e
 }
 
-// Install merges the xis hooks into a Claude Code settings file. It keeps all
-// other settings and hooks, and it does not add an entry twice.
-func Install(path, xisCmd string) ([]string, error) {
+// Install merges the xis hooks into the hook file of the agent. Claude Code
+// and Codex use the same format. It keeps all other settings and hooks, and
+// it does not add an entry twice.
+func Install(path, xisCmd, agent string) ([]string, error) {
 	root, mode, err := readSettings(path)
 	if err != nil {
 		return nil, err
@@ -130,8 +139,12 @@ func Install(path, xisCmd string) ([]string, error) {
 		hooks = newObject()
 	}
 	var changes []string
-	for _, ev := range claudecode.Events {
-		want := HookCommand(xisCmd, ev)
+	events := claudecode.Events
+	if agent == codex.Agent {
+		events = codex.Events
+	}
+	for _, ev := range events {
+		want := HookCommand(xisCmd, agent, ev)
 		timeout := hookTimeout(ev)
 		gv, _ := hooks.get(ev)
 		groups, _ := gv.([]any)

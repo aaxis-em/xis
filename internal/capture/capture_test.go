@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/config"
 )
 
@@ -184,7 +186,7 @@ func TestInstallMergeIdempotentUninstall(t *testing.T) {
 	if err := os.WriteFile(path, []byte(orig), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	changes, err := Install(path, "/opt/xis")
+	changes, err := Install(path, "/opt/xis", claudecode.Agent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +207,7 @@ func TestInstallMergeIdempotentUninstall(t *testing.T) {
 	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o640 {
 		t.Errorf("mode changed to %v", fi.Mode().Perm())
 	}
-	again, err := Install(path, "/opt/xis")
+	again, err := Install(path, "/opt/xis", claudecode.Agent)
 	if err != nil || len(again) != 0 {
 		t.Errorf("second install changes=%v err=%v", again, err)
 	}
@@ -213,7 +215,7 @@ func TestInstallMergeIdempotentUninstall(t *testing.T) {
 	if string(b2) != s {
 		t.Error("second install rewrote the file")
 	}
-	moved, err := Install(path, "/usr/bin/xis")
+	moved, err := Install(path, "/usr/bin/xis", claudecode.Agent)
 	if err != nil || len(moved) != 10 || !strings.HasPrefix(moved[0], "updated") {
 		t.Errorf("path change: %v %v", moved, err)
 	}
@@ -238,7 +240,7 @@ func TestInstallMergeIdempotentUninstall(t *testing.T) {
 
 func TestInstallNewFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "x", ".claude", "settings.json")
-	if _, err := Install(path, "xis"); err != nil {
+	if _, err := Install(path, "xis", claudecode.Agent); err != nil {
 		t.Fatal(err)
 	}
 	var m map[string]any
@@ -340,14 +342,38 @@ func TestNoSnapshotOfTheHomeRepository(t *testing.T) {
 func TestWindowsHookCommandIsRecognized(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".claude", "settings.json")
 	cmd := `"C:/Users/Some One/AppData/Local/Programs/xis/xis.exe"`
-	if _, err := Install(path, cmd); err != nil {
+	if _, err := Install(path, cmd, claudecode.Agent); err != nil {
 		t.Fatal(err)
 	}
-	if again, err := Install(path, cmd); err != nil || len(again) != 0 {
+	if again, err := Install(path, cmd, claudecode.Agent); err != nil || len(again) != 0 {
 		t.Errorf("second install changed %v (%v)", again, err)
 	}
 	if got, err := Installed(path); err != nil || len(got) == 0 {
 		t.Errorf("Windows hooks not found: %v %v", got, err)
+	}
+	if _, err := Uninstall(path); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := Installed(path); len(got) != 0 {
+		t.Errorf("hooks left after uninstall: %v", got)
+	}
+}
+
+func TestCodexHooksInstall(t *testing.T) {
+	repo := t.TempDir()
+	path, err := SettingsPath(codex.Agent, "project", repo, "")
+	if err != nil || path != filepath.Join(repo, ".codex", "hooks.json") {
+		t.Fatalf("path = %s, %v", path, err)
+	}
+	if _, err := Install(path, "xis", codex.Agent); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(path)
+	if !strings.Contains(string(b), `"xis hook codex PostToolUse"`) || strings.Contains(string(b), "PostToolUseFailure") {
+		t.Errorf("hooks.json:\n%s", b)
+	}
+	if got, _ := Installed(path); len(got) != len(codex.Events) {
+		t.Errorf("installed %d events, want %d", len(got), len(codex.Events))
 	}
 	if _, err := Uninstall(path); err != nil {
 		t.Fatal(err)

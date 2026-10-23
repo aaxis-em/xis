@@ -82,5 +82,7 @@ func IsMutatingTool(mutating, readonly []string, tool string) bool {
 	if MatchTool(mutating, tool) {
 		return true
 	}
-	return strings.HasPrefix(tool, "mcp__")
+	// apply_patch is the edit tool of Codex; configs written before Codex
+	// capture do not list it.
+	return strings.HasPrefix(tool, "mcp__") || tool == "apply_patch"
 }

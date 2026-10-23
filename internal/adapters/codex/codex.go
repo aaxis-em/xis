@@ -18,6 +18,18 @@ import (
 
 const Agent = "codex"
 
+// Events are the hook events that xis installs for Codex. Codex sends no
+// PostToolUseFailure; the rollout gives the exit codes.
+var Events = []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "SubagentStart", "SubagentStop", "PreCompact", "Stop", "SessionEnd"}
+
+func Home() string {
+	if h := os.Getenv("CODEX_HOME"); h != "" {
+		return h
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".codex")
+}
+
 type line struct {
 	Timestamp time.Time       `json:"timestamp"`
 	Type      string          `json:"type"`
@@ -363,7 +375,7 @@ func outputText(raw json.RawMessage) (string, *int) {
 
 func Category(tool string) model.ToolCategory {
 	switch tool {
-	case "shell", "exec_command", "local_shell", "container.exec", "unified_exec", "write_stdin":
+	case "Bash", "shell", "exec_command", "local_shell", "container.exec", "unified_exec", "write_stdin":
 		return model.CatShell
 	case "apply_patch":
 		return model.CatEdit

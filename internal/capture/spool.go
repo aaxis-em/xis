@@ -27,6 +27,7 @@ type RepoInfo struct {
 
 type Line struct {
 	V             int             `json:"xis_v"`
+	Agent         string          `json:"agent,omitempty"`
 	Ts            time.Time       `json:"ts"`
 	Event         string          `json:"event"`
 	Payload       json.RawMessage `json:"payload"`

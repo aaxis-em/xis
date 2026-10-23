@@ -65,6 +65,16 @@ $ xis hook install --agent claude-code
 
 The command keeps all other settings and hooks. A second run changes nothing. `xis hook uninstall` removes only the xis hooks.
 
+With `--agent codex`, the command adds the hooks to `.codex/hooks.json` in the repository, or to `~/.codex/hooks.json` with `--scope user`. `CODEX_HOME` changes the user directory. Codex runs a new hook only after you approve it. Start `codex` and review the hooks that it lists. Codex also reads project hooks only in a trusted project.
+
+```console
+$ xis hook install --agent codex
+/work/repo/.codex/hooks.json:
+  added SessionStart hook: /usr/local/bin/xis hook codex SessionStart
+  ...
+Codex runs the hooks only after you approve them: start codex and review the hooks it lists.
+```
+
 ## `xis doctor`
 
 The command checks git, the config, the permissions, the database, the hooks, the spool, the LLM config and the signing key.
@@ -75,7 +85,7 @@ ok    git            git 2.43.0
 ok    config         /home/me/.config/xis/config.toml
 ok    permissions    /home/me/.local/share/xis (0700/0600)
 ok    database       /home/me/.local/share/xis/xis.db (2 migrations, 3 sessions)
-ok    hooks          installed (project)
+ok    hooks          installed (claude-code project)
 ok    spool          empty
 ok    llm            off (provider none). Rules, why and flags work without it.
 ok    signing key    /home/me/.local/share/xis/keys
@@ -405,13 +415,13 @@ imported 01M5F0A1B2 (codex session 019a2b3c-4d5e-7f60-8a9b-0c1d2e3f4a5b): 8 step
 | `--since YYYY-MM-DD` | Import all rollouts changed on or after the date. |
 | `--base REF` | Use this base commit. The default is the commit in the rollout, else `HEAD`. |
 
-> **Caution:** Do not take imported attribution as exact. Codex has no hooks, so xis has no snapshots of the session.
+> **Caution:** Do not take imported attribution as exact. An import has no snapshots of the session. Use `xis hook install --agent codex` for live capture.
 
 For an imported session, xis gives a hunk line to an `apply_patch` step only if that patch added a line with the same text. A line that only a shell command could have made stays unattributed, and `UNATTRIBUTED_CHANGE` flags its hunk. The report, the review UI and `xis why` show the fidelity `imported`.
 
-## `xis hook claude-code`
+## `xis hook claude-code` and `xis hook codex`
 
-Claude Code runs this command for each hook event. Do not run it yourself. It reads the event from stdin, writes one spool line, and takes a snapshot after a mutating tool call. It always exits with code 0 and never writes to stdout.
+The agent runs this command for each hook event. Do not run it yourself. It reads the event from stdin, writes one spool line, and takes a snapshot after a mutating tool call. It always exits with code 0 and never writes to stdout.
 
 ## `xis gc`
 

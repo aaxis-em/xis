@@ -29,7 +29,7 @@ flowchart LR
 
 The agent calls the xis hooks at each step. The hooks write each event to the spool and take a snapshot of the working tree after each change. When the session stops, ingest reads the spool and the transcript. Ingest removes secrets and writes the session to the database. The commands read the database.
 
-xis captures Claude Code sessions live through hooks. It imports Codex CLI sessions from their logs, with lower fidelity. Each session shows how xis captured it: `live` or `imported`.
+xis captures Claude Code and Codex CLI sessions live through hooks. It can also import a Codex CLI session from its log, with lower fidelity. Each session shows how xis captured it: `live` or `imported`.
 
 ## Install
 
@@ -80,14 +80,14 @@ xis needs git 2.31 or later. It is one static binary for Linux, macOS and Window
 7. Run `xis precommit install` to stop commits with high-severity flags.
 8. After the commit, run `xis note write`. Then run `xis report --md` and paste the output into your pull request.
 
-For a Codex CLI session, run `xis import codex --latest` in place of steps 3 and 4.
+For Codex CLI, run `xis hook install --agent codex` in step 3. The command adds the hooks to `.codex/hooks.json`. Codex runs them only after you approve them in Codex.
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
 | `xis init` | Create the directories, the config file and the signing key. |
-| `xis hook install` / `uninstall` | Add or remove the Claude Code hooks. |
+| `xis hook install` / `uninstall` | Add or remove the Claude Code or Codex hooks. |
 | `xis ingest` | Ingest the spooled sessions (the hooks do it automatically). |
 | `xis import codex` | Import Codex CLI rollouts. |
 | `xis sessions` | List the sessions of the repository. |

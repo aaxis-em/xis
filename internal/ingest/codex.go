@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"github.com/aaxis-em/xis/internal/adapters/claudecode"
 	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/pathx"
@@ -144,14 +146,6 @@ func remap(tr *model.Trace, id string) {
 	}
 }
 
-func CodexHome() string {
-	if h := os.Getenv("CODEX_HOME"); h != "" {
-		return h
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".codex")
-}
-
 func FindRollouts(root string) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(filepath.Join(root, "sessions"), func(path string, d os.DirEntry, err error) error {
@@ -167,4 +161,77 @@ func FindRollouts(root string) ([]string, error) {
 		return nil
 	})
 	return out, err
+}
+
+// liveCodex builds a captured Codex session. Codex hooks have the payloads of
+// Claude Code hooks, so the hook events give the prompts, the tool calls and
+// the snapshots. The rollout adds the agent text, the reasoning, the exit
+// codes and the token counts.
+func liveCodex(input claudecode.Input, rollout string) model.Trace {
+	ro, err := (*codex.Result)(nil), errors.New("no rollout path in the hook events")
+	if rollout != "" {
+		ro, err = codex.Parse(rollout)
+	}
+	input.HasTranscript = err == nil
+	tr := claudecode.Build(input)
+	tr.Session.Agent = codex.Agent
+	if err != nil {
+		tr.Warnings = append(tr.Warnings, "rollout not read: "+err.Error())
+	}
+	byCall := map[string]model.ToolCall{}
+	used := map[string]bool{}
+	if ro != nil {
+		for _, tc := range ro.Trace.ToolCalls {
+			if tc.ToolUseID != "" {
+				byCall[tc.ToolUseID] = tc
+			}
+			// In code mode, Codex logs one exec call that runs a script; the
+			// hooks report the tools that the script calls.
+			if tc.ToolName == "exec" {
+				used[tc.StepID] = true
+			}
+		}
+	}
+	summary := map[string]string{}
+	for i := range tr.ToolCalls {
+		tc := &tr.ToolCalls[i]
+		tc.Category = codex.Category(tc.ToolName)
+		// Codex sends no failure event, so only the rollout has the exit code.
+		tc.ExitCode = nil
+		if rc, ok := byCall[tc.ToolUseID]; ok && tc.ToolUseID != "" {
+			tc.Output, tc.ExitCode, tc.OK = rc.Output, rc.ExitCode, rc.OK
+			used[rc.StepID] = true
+		}
+		summary[tc.StepID] = codex.Summary(tc.ToolName, tc.Input)
+	}
+	for i := range tr.Steps {
+		if s, ok := summary[tr.Steps[i].ID]; ok {
+			tr.Steps[i].Text = s
+		}
+	}
+	if ro == nil {
+		return tr
+	}
+	s := &tr.Session
+	s.AgentVersion, s.Models = ro.Trace.Session.AgentVersion, ro.Trace.Session.Models
+	s.InputTokens, s.OutputTokens = ro.Trace.Session.InputTokens, ro.Trace.Session.OutputTokens
+	agentActor := tr.Actors[0].ID // Build puts the agent first.
+	for _, st := range ro.Trace.Steps {
+		// The prompts and the hooked tool calls are steps already.
+		if st.Kind == model.StepUserMessage || used[st.ID] {
+			continue
+		}
+		st.SessionID, st.ActorID = s.ID, agentActor
+		tr.Steps = append(tr.Steps, st)
+	}
+	for _, tc := range ro.Trace.ToolCalls {
+		if !used[tc.StepID] {
+			tr.ToolCalls = append(tr.ToolCalls, tc)
+		}
+	}
+	sort.SliceStable(tr.Steps, func(i, j int) bool { return tr.Steps[i].TsStart.Before(tr.Steps[j].TsStart) })
+	for i := range tr.Steps {
+		tr.Steps[i].Seq = i + 1
+	}
+	return tr
 }

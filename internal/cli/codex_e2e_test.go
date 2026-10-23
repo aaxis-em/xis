@@ -99,3 +99,44 @@ func TestE2ECodexImport(t *testing.T) {
 		t.Errorf("why:\n%s", why)
 	}
 }
+
+func TestE2ECodexHooksIngestTwice(t *testing.T) {
+	s := newScenario(t)
+	hook := func(event string, fields map[string]any) {
+		t.Helper()
+		p := map[string]any{"session_id": s.session, "cwd": s.repo, "hook_event_name": event, "transcript_path": "/nonexistent.jsonl"}
+		for k, v := range fields {
+			p[k] = v
+		}
+		b, _ := json.Marshal(p)
+		hookStdin = strings.NewReader(string(b))
+		if out, err := run(t, "hook", "codex", event); err != nil || out != "" {
+			t.Fatalf("hook %s: %q %v", event, out, err)
+		}
+	}
+	patch := map[string]any{"tool_name": "apply_patch", "tool_use_id": "exec-1", "tool_input": map[string]any{"command": "*** Begin Patch\n*** Update File: calc.go\n*** End Patch"}}
+	hook("SessionStart", map[string]any{"source": "startup"})
+	hook("UserPromptSubmit", map[string]any{"prompt": "Fix Add."})
+	hook("PreToolUse", patch)
+	s.write("calc.go", calcFixed)
+	hook("PostToolUse", patch)
+	hook("Stop", map[string]any{"last_assistant_message": "Done."})
+	for i := 1; i <= 2; i++ {
+		if out, err := run(t, "ingest", "--session", s.session); err != nil {
+			t.Fatalf("ingest %d: %v %s", i, err, out)
+		}
+	}
+	st := openTestStore(t)
+	sess, err := st.FindSession("codex", s.session)
+	if err != nil || sess.Fidelity != "live" {
+		t.Fatalf("session = %+v, %v", sess, err)
+	}
+	app := &App{Paths: config.DefaultPaths(), Cfg: config.Default(), RepoDir: s.repo}
+	_, res, err := app.computeChange(st, attribution.Options{Mode: attribution.ModeSession})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := provenanceByFile(t, st, res)["calc.go"]; len(got) != 1 || !strings.HasPrefix(got[0], "exec-1:") {
+		t.Errorf("calc.go provenance = %v", got)
+	}
+}

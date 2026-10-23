@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/ingest"
 )
 
@@ -20,7 +21,8 @@ func newImportCmd() *cobra.Command {
 	cx := &cobra.Command{
 		Use:   "codex",
 		Short: "Import Codex CLI rollout files from ~/.codex/sessions",
-		Long: `Import Codex CLI rollouts. Codex has no hooks, so xis has no snapshots. The fidelity is "imported".
+		Long: `Import Codex CLI rollouts. An import has no snapshots, so the fidelity is "imported". For live capture, run
+` + "`xis hook install --agent codex`" + ` instead.
 xis attributes a hunk to an apply_patch step only when the patch added the same lines. Hunks that only
 shell commands could have made stay unattributed. xis never guesses.`,
 		Args: cobra.NoArgs,
@@ -31,12 +33,12 @@ shell commands could have made stay unattributed. xis never guesses.`,
 			case path != "":
 				files = []string{path}
 			default:
-				all, err := ingest.FindRollouts(ingest.CodexHome())
+				all, err := ingest.FindRollouts(codex.Home())
 				if err != nil {
 					return userErr(err.Error(), "", err)
 				}
 				if len(all) == 0 {
-					return userErr("no Codex rollouts in "+ingest.CodexHome()+"/sessions", "Use --path FILE, or set CODEX_HOME.", nil)
+					return userErr("no Codex rollouts in "+codex.Home()+"/sessions", "Use --path FILE, or set CODEX_HOME.", nil)
 				}
 				type f struct {
 					p string

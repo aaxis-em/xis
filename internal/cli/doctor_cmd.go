@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/capture"
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/gitx"
@@ -102,28 +104,30 @@ func runDoctor(a *App) []check {
 
 	home, _ := os.UserHomeDir()
 	var installedIn []string
-	missing := 0
-	for _, scope := range []string{"project", "user"} {
-		path, err := capture.SettingsPath(scope, a.RepoDir, home)
-		if err != nil {
-			continue
-		}
-		inst, err := capture.Installed(path)
-		if err != nil {
-			add("hooks", "warn", fmt.Sprintf("cannot read %s: %v", path, err), "")
-			continue
-		}
-		if len(inst) > 0 {
-			installedIn = append(installedIn, scope)
-			missing = len(claudecode.Events) - len(inst)
+	for agent, events := range map[string][]string{claudecode.Agent: claudecode.Events, codex.Agent: codex.Events} {
+		for _, scope := range []string{"project", "user"} {
+			path, err := capture.SettingsPath(agent, scope, a.RepoDir, home)
+			if err != nil {
+				continue
+			}
+			inst, err := capture.Installed(path)
+			if err != nil {
+				add("hooks", "warn", fmt.Sprintf("cannot read %s: %v", path, err), "")
+				continue
+			}
+			if len(inst) == 0 {
+				continue
+			}
+			installedIn = append(installedIn, agent+" "+scope)
+			if missing := len(events) - len(inst); missing > 0 {
+				add("hooks", "warn", fmt.Sprintf("%d %s hook events are missing (%s)", missing, agent, scope), "Run `xis hook install --agent "+agent+"` again.")
+			}
 		}
 	}
-	switch {
-	case len(installedIn) == 0:
-		add("hooks", "warn", "no xis hooks in the Claude Code settings", "Run `xis hook install --agent claude-code`.")
-	case missing > 0:
-		add("hooks", "warn", fmt.Sprintf("%d hook events are missing (%s)", missing, strings.Join(installedIn, ", ")), "Run `xis hook install` again.")
-	default:
+	sort.Strings(installedIn)
+	if len(installedIn) == 0 {
+		add("hooks", "warn", "no xis hooks for Claude Code or Codex", "Run `xis hook install --agent claude-code` or `--agent codex`.")
+	} else {
 		add("hooks", "ok", "installed ("+strings.Join(installedIn, ", ")+")", "")
 	}
 

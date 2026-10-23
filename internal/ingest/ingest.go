@@ -14,6 +14,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/adapters"
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/capture"
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/model"
@@ -58,8 +59,8 @@ func eventKey(l capture.Line) string {
 	return hex.EncodeToString(h.Sum(nil)[:12])
 }
 
-// IngestSpool ingests one Claude Code session from its spool file and the
-// events already stored for it, then deletes the spool file.
+// IngestSpool ingests one Claude Code or Codex session from its spool file
+// and the events already stored for it, then deletes the spool file.
 func (in *Ingester) IngestSpool(agentSessionID string) (Result, error) {
 	run, err := capture.LockIngest(in.Paths.Spool, agentSessionID, 2*time.Minute)
 	if err != nil {
@@ -81,7 +82,17 @@ func (in *Ingester) IngestSpool(agentSessionID string) (Result, error) {
 }
 
 func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Result, error) {
-	existing, err := in.Store.FindSession(claudecode.Agent, agentSessionID)
+	agent := claudecode.Agent
+	for _, l := range lines {
+		if l.Agent != "" {
+			agent = l.Agent
+		}
+	}
+	// Without new lines, only the stored session tells the agent.
+	if _, err := in.Store.FindSession(codex.Agent, agentSessionID); len(lines) == 0 && err == nil {
+		agent = codex.Agent
+	}
+	existing, err := in.Store.FindSession(agent, agentSessionID)
 	known := err == nil
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return Result{}, err
@@ -122,22 +133,27 @@ func (in *Ingester) ingestLines(agentSessionID string, lines []capture.Line) (Re
 
 	transcriptPath, agentTranscripts := transcriptPaths(events)
 	input := claudecode.Input{Events: events}
-	var warnings []string
-	if transcriptPath != "" {
-		entries, warns, err := claudecode.ReadTranscript(transcriptPath)
-		if err == nil {
-			input.Transcript, input.HasTranscript = entries, true
-			warnings = append(warnings, warns...)
-		} else {
-			warnings = append(warnings, "transcript not read: "+err.Error())
-		}
-		input.Subagents = readSubagents(transcriptPath, agentTranscripts, &warnings)
-	}
 	if known {
 		input.SessionID = existing.ID
 	}
-	tr := claudecode.Build(input)
-	tr.Warnings = append(tr.Warnings, warnings...)
+	var tr model.Trace
+	if agent == codex.Agent {
+		tr = liveCodex(input, transcriptPath)
+	} else {
+		var warnings []string
+		if transcriptPath != "" {
+			entries, warns, err := claudecode.ReadTranscript(transcriptPath)
+			if err == nil {
+				input.Transcript, input.HasTranscript = entries, true
+				warnings = append(warnings, warns...)
+			} else {
+				warnings = append(warnings, "transcript not read: "+err.Error())
+			}
+			input.Subagents = readSubagents(transcriptPath, agentTranscripts, &warnings)
+		}
+		tr = claudecode.Build(input)
+		tr.Warnings = append(tr.Warnings, warnings...)
+	}
 	tr.Session.NoGit = noGit && len(tr.Snapshots) == 0
 
 	var repo model.Repo

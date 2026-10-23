@@ -106,7 +106,7 @@ The migrations are SQL files in `internal/store/migrations`. xis applies them in
 
 ## Capture
 
-Claude Code runs `xis hook claude-code <Event>` for each hook event. The hook reads the event payload from stdin. It writes one line to the spool file of the session. After a tool call that can change files, the hook also takes a snapshot.
+Claude Code runs `xis hook claude-code <Event>` for each hook event, and Codex runs `xis hook codex <Event>`. The hook reads the event payload from stdin. It writes one line to the spool file of the session. After a tool call that can change files, the hook also takes a snapshot.
 
 This diagram shows the capture of one `Edit` tool call.
 
@@ -138,8 +138,10 @@ The hook obeys these rules:
 Each spool line has this form:
 
 ```json
-{"xis_v":1,"ts":"2026-10-20T13:58:41.123Z","event":"PostToolUse","payload":{...},"snapshot":"<shadow commit or null>","repo":{"id":"e360f8ac35ff0cd7","top":"/work/repo"}}
+{"xis_v":1,"agent":"codex","ts":"2026-10-20T13:58:41.123Z","event":"PostToolUse","payload":{...},"snapshot":"<shadow commit or null>","repo":{"id":"e360f8ac35ff0cd7","top":"/work/repo"}}
 ```
+
+A line without `agent` is from Claude Code.
 
 The hook copies the payload without change. Ingest removes secrets later. If the payload is not valid JSON, the hook stores it as a JSON string.
 
@@ -323,6 +325,17 @@ The prompts are Go constants with a version, for example `rationale-v1`. The ver
 To sign, xis removes the field `sig`, writes the JSON with sorted keys, and signs those bytes with ed25519. The note holds the public key. To verify, xis does the same steps and checks the signature. Thus a note verifies after any change of whitespace or key order, but not after a change of a value.
 
 xis writes the note with `git notes --ref refs/notes/xis add -f`. This is the only write of xis to the user repository, together with the hooks that you install explicitly.
+
+## Codex capture
+
+Codex CLI 0.164 has hooks in the format of Claude Code: the same `hooks.json` structure, the same event names and nearly the same payloads. xis reads the payload schemas from the Codex binary and the hook code from the Codex source (`codex-rs/hooks`). The differences are:
+
+- Each payload has `turn_id` and `model`. `transcript_path` is the rollout file, and it can be null.
+- Codex has no `PostToolUseFailure`. A failed shell command causes `PostToolUse`.
+- The tool name of a shell command is `Bash`, and its `tool_input` has `command`. The edit tool is `apply_patch`. xis always takes it as a mutating tool, also with an older config.
+- Codex runs a hook only after the user approves it. The approval is a hash of the hook in `hooks.state` of `~/.codex/config.toml`. xis does not write it.
+
+Ingest uses the Claude Code builder for the hook events. It gives the prompts, the tool calls and the snapshots. Then ingest reads the rollout file with the import parser. The rollout adds the agent text, the reasoning and the token counts. It also gives the output and the exit code of each tool call, joined on `tool_use_id` and `call_id`. The rollout also adds the tool calls that had no hook. In code mode, Codex logs one `exec` call that runs a short script, and the hooks report the tools that the script calls. Ingest skips these `exec` calls, so each command is one step. Without the rollout, a tool call has no exit code, so xis never takes a test run as passed.
 
 ## Codex import
 
