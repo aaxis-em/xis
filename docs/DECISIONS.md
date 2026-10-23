@@ -494,3 +494,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `xis ask` wrote each answer to the table `qa`, but no command read the table.
 - **Choice:** xis does not store the answers. The table stays, because SQLite migrations only add. The LLM cache already makes a repeated question free.
 - **Why:** Data that nothing reads only grows.
+
+## D84. Live review
+
+- **Context:** The review UI loaded its data once. A new prompt or edit of the agent appeared only after the user closed and opened the UI again.
+- **Choice:** Every 2 seconds, the UI checks the spool file and the end time of each session in the change. If one changed, the UI analyzes the change again in the background, which ingests the new events first. Then it swaps the data and keeps the selected hunk, matched by `HunkKey`, and the selected prompt. A review without a session argument keeps the session that it opened.
+- **Why:** The checks cost a file stat and a query, so the UI does the expensive analysis only after new events. The hooks stay unchanged.

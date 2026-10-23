@@ -238,6 +238,8 @@ The UI has three panes:
 
 By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A line under the panes shows the prompt. Press `i` to read the full prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
 
+The UI follows its session while it is open. Every 2 seconds, it checks for new events of the agent, for example a new prompt or an edit. Then it loads the change again, and the footer says `updated from the session`. The selected hunk and the selected prompt stay selected. The UI keeps the session that it opened, also when a newer session starts.
+
 You mark each hunk. The mark in front of a unit shows its progress:
 
 | Mark | Meaning |

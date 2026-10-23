@@ -100,8 +100,6 @@ func defaultEditor(file string, line int) *exec.Cmd {
 	return exec.Command(parts[0], args...)
 }
 
-func (m *Model) Init() tea.Cmd { return nil }
-
 type answerMsg struct {
 	text string
 	err  error
@@ -237,6 +235,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "editor: " + msg.err.Error()
 		}
 		return m, nil
+	case tickMsg:
+		return m, m.refresh()
+	case refreshMsg:
+		switch {
+		case msg.err != nil:
+			m.status = "reload: " + msg.err.Error()
+		case msg.data != nil:
+			m.Reload(msg.data)
+			m.status = "updated from the session"
+		}
+		return m, m.nextTick()
 	case tea.KeyMsg:
 		if m.inputMode != "" {
 			return m.updateInput(msg)

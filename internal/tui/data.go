@@ -50,6 +50,9 @@ type Callbacks struct {
 	SetHunkStatus func(hunkKey, status string) error
 	// Ask is nil when no LLM is configured.
 	Ask func(question string) (string, error)
+	// Refresh returns new data when the sessions changed, or nil. Nil
+	// Refresh turns off the reload.
+	Refresh func() (*Data, error)
 }
 
 func (d *Data) step(id string) (model.Step, *store.SessionData, bool) {
