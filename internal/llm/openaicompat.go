@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/aaxis-em/xis/internal/config"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 type jsonMode int
@@ -88,7 +89,7 @@ type oaiHTTPError struct {
 }
 
 func (e *oaiHTTPError) Error() string {
-	return fmt.Sprintf("openaicompat: HTTP %d: %s", e.status, firstLine(e.msg))
+	return fmt.Sprintf("openaicompat: HTTP %d: %s", e.status, textx.FirstLine(e.msg))
 }
 
 func (p *openAICompat) Complete(ctx context.Context, req Request) (Response, error) {

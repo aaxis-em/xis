@@ -14,6 +14,7 @@ import (
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 func init() { register(newWhyCmd) }
@@ -227,24 +228,24 @@ func printWhy(a *App, w *whyResult) {
 		case "subagent":
 			who = "subagent"
 		}
-		a.printf("  step         #%d %s (%s)\n", w.Step.Seq, oneLine(w.Step.Text, 80), who)
+		a.printf("  step         #%d %s (%s)\n", w.Step.Seq, textx.OneLine(w.Step.Text, 80), who)
 	}
 	if w.Instruction != nil {
-		a.printf("  instruction  #%d %q\n", w.Instruction.Seq, oneLine(w.Instruction.Text, 100))
+		a.printf("  instruction  #%d %q\n", w.Instruction.Seq, textx.OneLine(w.Instruction.Text, 100))
 	}
 	for _, it := range w.Intent {
-		a.printf("  intent       %q\n", oneLine(it, 100))
+		a.printf("  intent       %q\n", textx.OneLine(it, 100))
 	}
 	if len(w.AgentText) > 0 {
 		a.printf("  agent text near this edit (agent says, unverified):\n")
 		for _, t := range w.AgentText {
-			a.printf("    #%d %s: %q\n", t.Seq, t.Kind, oneLine(t.Text, 140))
+			a.printf("    #%d %s: %q\n", t.Seq, t.Kind, textx.OneLine(t.Text, 140))
 		}
 	}
 	if len(w.Evidence) > 0 {
 		a.printf("  evidence:\n")
 		for _, t := range w.Evidence {
-			a.printf("    #%d %s\n", t.Seq, oneLine(t.Text, 100))
+			a.printf("    #%d %s\n", t.Seq, textx.OneLine(t.Text, 100))
 		}
 	}
 	if w.Rationale != "" {

@@ -96,8 +96,8 @@ func Default() Config {
 			APIKeyEnv:          "ANTHROPIC_API_KEY",
 			MaxUSDPerChange:    0.50,
 			SendCode:           true,
-			PriceInputPerMTok:  3.0,
-			PriceOutputPerMTok: 15.0,
+			PriceInputPerMTok:  2.0,
+			PriceOutputPerMTok: 10.0,
 			MaxTokens:          4096,
 		},
 		Rules: Rules{

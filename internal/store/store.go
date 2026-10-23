@@ -66,10 +66,6 @@ func Open(path string) (*Store, error) {
 
 func (s *Store) Close() error { return s.db.Close() }
 
-func (s *Store) Path() string { return s.path }
-
-func (s *Store) DB() *sql.DB { return s.db }
-
 func (s *Store) Tx(fn func(tx *Store) error) error {
 	if _, ok := s.q.(*sql.Tx); ok {
 		return fn(s)

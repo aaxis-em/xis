@@ -25,25 +25,6 @@ func (s *Store) GetRepo(id string) (model.Repo, error) {
 	return r, err
 }
 
-func (s *Store) ListRepos() ([]model.Repo, error) {
-	rows, err := s.query(`SELECT id, path, remote_url, created_at FROM repos ORDER BY path`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.Repo
-	for rows.Next() {
-		var r model.Repo
-		var path, remote, created sql.NullString
-		if err := rows.Scan(&r.ID, &path, &remote, &created); err != nil {
-			return nil, err
-		}
-		r.Path, r.RemoteURL, r.CreatedAt = str(path), str(remote), parseTS(created)
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
 const sessionCols = `id, repo_id, agent, agent_version, agent_session_id, models, fidelity,
 	base_commit, base_snapshot, final_snapshot, started_at, ended_at, cwd, title,
 	parent_session_id, no_git, input_tokens, output_tokens, status`
@@ -145,25 +126,6 @@ func (s *Store) DeleteSessionData(sessionID string) error {
 		}
 	}
 	return nil
-}
-
-func (s *Store) DeleteSession(sessionID string) error {
-	return s.Tx(func(tx *Store) error {
-		if err := tx.DeleteSessionData(sessionID); err != nil {
-			return err
-		}
-		for _, q := range []string{
-			`DELETE FROM intent_items WHERE session_id = ?`,
-			`DELETE FROM hook_events WHERE session_id = ?`,
-			`DELETE FROM flags WHERE session_id = ?`,
-			`DELETE FROM sessions WHERE id = ?`,
-		} {
-			if err := tx.exec(q, sessionID); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
 }
 
 func (s *Store) PutActor(a model.Actor) error {

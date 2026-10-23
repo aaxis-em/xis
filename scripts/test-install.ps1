@@ -57,8 +57,8 @@ s.serve_forever()
 	}
 	$base = "http://127.0.0.1:$((Get-Content $portFile | Select-Object -First 1).Trim())"
 
-	function Install($dir, $ver) {
-		$env:XIS_BASE_URL = $base; $env:XIS_INSTALL_DIR = $dir; $env:XIS_ARCH = 'amd64'; $env:XIS_NO_PATH = '1'
+	function Install($dir, $ver, $noPath = '1') {
+		$env:XIS_BASE_URL = $base; $env:XIS_INSTALL_DIR = $dir; $env:XIS_ARCH = 'amd64'; $env:XIS_NO_PATH = $noPath
 		$env:XIS_VERSION = $ver
 		$out = & $shell -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'install.ps1') 2>&1
 		return @{ Ok = ($LASTEXITCODE -eq 0); Out = ($out -join "`n") }
@@ -82,6 +82,27 @@ s.serve_forever()
 	Check 'nothing installed on mismatch' (-not (Test-Path (Join-Path $tmp 'bin3/xis.exe'))) ''
 	$r = Install (Join-Path $tmp 'bin4') 'v9.9.9'
 	Check 'unknown version fails' (-not $r.Ok) $r.Out
+
+	if ($IsWindows) {
+		Set-Content -Path (Join-Path $release 'checksums.txt') -Value "$hash  $archive"
+		$key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+		$opt = [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
+		$saved = $key.GetValue('Path', $null, $opt)
+		$savedKind = if ($null -ne $saved) { $key.GetValueKind('Path') } else { $null }
+		try {
+			$key.SetValue('Path', '%XIS_TEST_HOME%\bin;C:\existing', [Microsoft.Win32.RegistryValueKind]::ExpandString)
+			$dir = Join-Path $tmp 'bin5'
+			$r = Install $dir '' '0'
+			$after = $key.GetValue('Path', '', $opt)
+			Check 'PATH keeps %VAR% entries' ($r.Ok -and $after -eq "%XIS_TEST_HOME%\bin;C:\existing;$dir") "$after`n$($r.Out)"
+			Check 'PATH stays expandable' ($key.GetValueKind('Path') -eq [Microsoft.Win32.RegistryValueKind]::ExpandString) ''
+			$r = Install $dir '' '0'
+			Check 'second install adds nothing' ($key.GetValue('Path', '', $opt) -eq $after) ($key.GetValue('Path', '', $opt))
+		} finally {
+			if ($null -ne $saved) { $key.SetValue('Path', $saved, $savedKind) } else { $key.DeleteValue('Path', $false) }
+			$key.Close()
+		}
+	}
 } finally {
 	if ($server) { Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue }
 	Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue

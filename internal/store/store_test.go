@@ -34,7 +34,7 @@ func must(t *testing.T, err error) {
 
 func TestOpenPermissionsAndMigrations(t *testing.T) {
 	s := open(t)
-	for _, p := range []string{s.Path(), s.Path() + "-wal"} {
+	for _, p := range []string{s.path, s.path + "-wal"} {
 		fi, err := os.Stat(p)
 		if err != nil {
 			t.Fatal(err)
@@ -43,7 +43,7 @@ func TestOpenPermissionsAndMigrations(t *testing.T) {
 			t.Errorf("%s mode = %v", p, fi.Mode().Perm())
 		}
 	}
-	fi, _ := os.Stat(filepath.Dir(s.Path()))
+	fi, _ := os.Stat(filepath.Dir(s.path))
 	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o700 {
 		t.Errorf("dir mode = %v", fi.Mode().Perm())
 	}
@@ -59,7 +59,7 @@ func TestOpenPermissionsAndMigrations(t *testing.T) {
 	}
 	must(t, s.Check())
 	s.Close()
-	s2, err := Open(s.Path())
+	s2, err := Open(s.path)
 	must(t, err)
 	s2.Close()
 }
@@ -107,23 +107,18 @@ func TestRoundTrip(t *testing.T) {
 	step := model.Step{ID: "st1", SessionID: "s1", ActorID: "a1", ParentStepID: "st0", Seq: 3, TsStart: t0, TsEnd: t0.Add(time.Second),
 		Kind: model.StepToolCall, Text: "hello", Snapshot: "c1", Summary: "sum"}
 	must(t, s.PutStep(step))
-	gotStep, err := s.GetStep("st1")
+	gotSteps, err := s.ListSteps("s1")
 	must(t, err)
-	if diff := cmp.Diff(step, gotStep); diff != "" {
+	if diff := cmp.Diff([]model.Step{step}, gotSteps); diff != "" {
 		t.Errorf("step: %s", diff)
 	}
 
 	tc := model.ToolCall{StepID: "st1", ToolUseID: "tu", ToolName: "Bash", Category: model.CatTest, Input: "{}", Output: "o", ExitCode: &exit, OK: false, DurationMS: 12}
 	must(t, s.PutToolCall(tc))
-	gotTC, err := s.GetToolCall("st1")
-	must(t, err)
-	if diff := cmp.Diff(tc, gotTC); diff != "" {
-		t.Errorf("tool call: %s", diff)
-	}
 	tcs, err := s.ListToolCalls("s1")
 	must(t, err)
-	if len(tcs) != 1 {
-		t.Errorf("tool calls: %d", len(tcs))
+	if diff := cmp.Diff([]model.ToolCall{tc}, tcs); diff != "" {
+		t.Errorf("tool call: %s", diff)
 	}
 
 	edit := model.Edit{ID: "e1", StepID: "st1", FilePath: "a.go", OldPath: "b.go", BeforeBlob: "x", AfterBlob: "y", Patch: "@@", Added: 2, Removed: 1, RevertedByEditID: "e2"}
@@ -152,9 +147,9 @@ func TestRoundTrip(t *testing.T) {
 
 	ch := model.Change{ID: "c1", RepoID: "r1", BaseRef: "abc", TargetRef: "worktree", SessionIDs: []string{"s1"}, CreatedAt: t0}
 	must(t, s.PutChange(ch))
-	gotCh, err := s.GetChange("c1")
+	gotCh, err := s.ListChanges("r1")
 	must(t, err)
-	if diff := cmp.Diff(ch, gotCh); diff != "" {
+	if diff := cmp.Diff([]model.Change{ch}, gotCh); diff != "" {
 		t.Errorf("change: %s", diff)
 	}
 
@@ -172,32 +167,15 @@ func TestRoundTrip(t *testing.T) {
 
 	h := model.Hunk{ID: "h1", ChangeID: "c1", FilePath: "a.go", OldStart: 1, OldLines: 2, NewStart: 3, NewLines: 4, Patch: "@@", ChangeType: model.ChangeBehavior, ReviewUnitID: "u1", ContentHash: "hh"}
 	must(t, s.PutHunk(h))
-	gotH, err := s.GetHunk("h1")
+	gotH, err := s.ListHunks("c1")
 	must(t, err)
-	if diff := cmp.Diff(h, gotH); diff != "" {
+	if diff := cmp.Diff([]model.Hunk{h}, gotH); diff != "" {
 		t.Errorf("hunk: %s", diff)
 	}
 
 	prov := model.HunkProvenance{HunkID: "h1", StepID: "st1", Lines: 4}
 	must(t, s.PutProvenance(prov))
-	provs, err := s.ListProvenance("c1")
-	must(t, err)
-	if diff := cmp.Diff([]model.HunkProvenance{prov}, provs); diff != "" {
-		t.Errorf("prov: %s", diff)
-	}
-	hs, err := s.HunksOfStep("c1", "st1")
-	must(t, err)
-	if len(hs) != 1 {
-		t.Errorf("hunks of step: %v", hs)
-	}
-
-	hi := model.HunkIntent{HunkID: "h1", IntentItemID: "i1", Confidence: 0.5}
-	must(t, s.PutHunkIntent(hi))
-	his, err := s.ListHunkIntent("c1")
-	must(t, err)
-	if diff := cmp.Diff([]model.HunkIntent{hi}, his); diff != "" {
-		t.Errorf("hunk intent: %s", diff)
-	}
+	must(t, s.PutHunkIntent(model.HunkIntent{HunkID: "h1", IntentItemID: "i1", Confidence: 0.5}))
 
 	rat := model.Rationale{HunkID: "h1", AgentClaim: "c", ClaimStepID: "st1", Explanation: "e [step:st1]", EvidenceStepIDs: []string{"st1"}, Verified: true, Model: "m", CreatedAt: t0}
 	must(t, s.PutRationale(rat))
@@ -229,22 +207,6 @@ func TestRoundTrip(t *testing.T) {
 		t.Error("suppression did not survive recompute")
 	}
 
-	qa := model.QA{ID: "q1", ChangeID: "c1", Question: "why?", Answer: "because [step:st1]", CitedStepIDs: []string{"st1"}, CitedHunkIDs: []string{"h1"}, Model: "m", CreatedAt: t0}
-	must(t, s.PutQA(qa))
-	qas, err := s.ListQA("c1")
-	must(t, err)
-	if diff := cmp.Diff([]model.QA{qa}, qas); diff != "" {
-		t.Errorf("qa: %s", diff)
-	}
-
-	blob := model.Blob{SHA256: "ab", Size: 3, Content: []byte("abc")}
-	must(t, s.PutBlob(blob))
-	gotBlob, err := s.GetBlob("ab")
-	must(t, err)
-	if diff := cmp.Diff(blob, gotBlob); diff != "" {
-		t.Errorf("blob: %s", diff)
-	}
-
 	ev := model.HookEvent{SessionID: "s1", Key: "k1", Seq: 1, Ts: t0, Event: "PostToolUse", Payload: "{}", Snapshot: "c1"}
 	must(t, s.PutHookEvent(ev))
 	must(t, s.PutHookEvent(ev))
@@ -252,14 +214,6 @@ func TestRoundTrip(t *testing.T) {
 	must(t, err)
 	if diff := cmp.Diff([]model.HookEvent{ev}, evs); diff != "" {
 		t.Errorf("hook events: %s", diff)
-	}
-
-	must(t, s.DeleteSession("s1"))
-	if _, err := s.GetSession("s1"); !errors.Is(err, ErrNotFound) {
-		t.Errorf("deleted session: %v", err)
-	}
-	if steps, _ := s.ListSteps("s1"); len(steps) != 0 {
-		t.Error("steps left after delete")
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/aaxis-em/xis/internal/qa"
 	"github.com/aaxis-em/xis/internal/redact"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 func init() {
@@ -206,7 +207,7 @@ func intentOf(ca *changeAnalysis) []model.IntentItem {
 	return out
 }
 
-func (a *App) askFunc(st *store.Store, ca *changeAnalysis) func(string) (string, error) {
+func (a *App) askFunc(ca *changeAnalysis) func(string) (string, error) {
 	asker, err := a.asker()
 	if err != nil {
 		return nil
@@ -214,9 +215,6 @@ func (a *App) askFunc(st *store.Store, ca *changeAnalysis) func(string) (string,
 	return func(q string) (string, error) {
 		res, err := asker.Ask(context.Background(), analysisInput(ca), intentOf(ca), q)
 		if err != nil {
-			return "", err
-		}
-		if err := st.PutQA(res); err != nil {
 			return "", err
 		}
 		return res.Answer, nil
@@ -255,9 +253,6 @@ If the record has no answer, the answer says "Not in the session record."`,
 			if err != nil {
 				return userErr(err.Error(), "Check the [llm] section of the config.", err)
 			}
-			if err := st.PutQA(res); err != nil {
-				return err
-			}
 			if a.JSON {
 				return json.NewEncoder(a.Out).Encode(res)
 			}
@@ -267,7 +262,7 @@ If the record has no answer, the answer says "Not in the session record."`,
 				for _, id := range res.CitedStepIDs {
 					for _, d := range ca.Sessions {
 						if s, ok := d.Step(id); ok {
-							a.printf("  [step:%s] step %d %s\n", id, s.Seq, oneLine(s.Text, 80))
+							a.printf("  [step:%s] step %d %s\n", id, s.Seq, textx.OneLine(s.Text, 80))
 						}
 					}
 				}

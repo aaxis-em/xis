@@ -13,6 +13,7 @@ import (
 	"github.com/aaxis-em/xis/internal/shellcmd"
 	"github.com/aaxis-em/xis/internal/store"
 	"github.com/aaxis-em/xis/internal/testdetect"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 var zeroTime = time.Unix(0, 0)
@@ -384,7 +385,7 @@ func init() {
 						if id == "DESTRUCTIVE_COMMAND" && removesOnlyTemp(seg) {
 							continue
 						}
-						out = append(out, r.flag(c, d.Session.ID, "step", s.ID, "", fmt.Sprintf("The agent ran a %s: %s", what, oneLine(seg)), s.ID))
+						out = append(out, r.flag(c, d.Session.ID, "step", s.ID, "", fmt.Sprintf("The agent ran a %s: %s", what, textx.OneLine(seg, 120)), s.ID))
 						break
 					}
 				}
@@ -543,14 +544,6 @@ func finalAgentMessage(d *store.SessionData) model.Step {
 		}
 	}
 	return model.Step{}
-}
-
-func oneLine(s string) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if len(s) > 120 {
-		s = s[:119] + "…"
-	}
-	return s
 }
 
 func stem(p string) string {

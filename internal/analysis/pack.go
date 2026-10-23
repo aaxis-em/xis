@@ -79,8 +79,6 @@ func (p *Pack) SetIntent(items []model.IntentItem) {
 func (p *Pack) StepID(alias string) string   { return p.aliasStep[alias] }
 func (p *Pack) HunkID(alias string) string   { return p.aliasHunk[alias] }
 func (p *Pack) IntentID(alias string) string { return p.aliasInt[alias] }
-func (p *Pack) StepAlias(id string) string   { return p.stepAlias[id] }
-func (p *Pack) HunkAlias(id string) string   { return p.hunkAlias[id] }
 
 func clip(s string, n int) string {
 	if len(s) <= n {

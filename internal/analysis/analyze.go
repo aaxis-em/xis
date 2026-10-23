@@ -12,6 +12,7 @@ import (
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/llm"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 type Analyzer struct {
@@ -135,7 +136,7 @@ func (a *Analyzer) summarize(ctx context.Context, p *Pack, out *Output) error {
 		}
 		for _, s := range res.Steps {
 			if id := p.StepID(s.Step); id != "" && strings.TrimSpace(s.Summary) != "" {
-				sum := oneLine(s.Summary, 300)
+				sum := textx.OneLine(s.Summary, 300)
 				p.Summaries[id], out.StepSummaries[id] = sum, sum
 			}
 		}
@@ -155,14 +156,6 @@ func (a *Analyzer) summarize(ctx context.Context, p *Pack, out *Output) error {
 		chunk, size = append(chunk, b), size+len(b)
 	}
 	return flush()
-}
-
-func oneLine(s string, n int) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if len(s) > n {
-		s = s[:n]
-	}
-	return s
 }
 
 func (a *Analyzer) intent(ctx context.Context, p *Pack, in Input, out *Output) error {
@@ -212,7 +205,7 @@ func (a *Analyzer) intent(ctx context.Context, p *Pack, in Input, out *Output) e
 	for _, it := range res.Items {
 		id := p.StepID(it.SourceStep)
 		src, ok := allowed[id]
-		text := oneLine(it.Text, 300)
+		text := textx.OneLine(it.Text, 300)
 		if !ok || text == "" || seen[id+text] {
 			continue
 		}
@@ -256,7 +249,7 @@ func (a *Analyzer) group(ctx context.Context, p *Pack, in Input, out *Output) er
 	assigned := map[string]string{}
 	var units []model.ReviewUnit
 	for i, u := range res.Units {
-		title := oneLine(u.Title, 80)
+		title := textx.OneLine(u.Title, 80)
 		if title == "" || len(u.Hunks) == 0 {
 			fallback()
 			return fmt.Errorf("unit %d has no title or no hunks; using fixed grouping", i+1)

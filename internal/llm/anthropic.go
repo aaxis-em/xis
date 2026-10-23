@@ -11,6 +11,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"github.com/aaxis-em/xis/internal/config"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 type anthropicProvider struct {
@@ -62,7 +63,7 @@ func (p *anthropicProvider) Complete(ctx context.Context, req Request) (Response
 	if err != nil {
 		var apiErr *anthropic.Error
 		if errors.As(err, &apiErr) {
-			return Response{}, fmt.Errorf("anthropic API error %d: %s", apiErr.StatusCode, firstLine(apiErr.Error()))
+			return Response{}, fmt.Errorf("anthropic API error %d: %s", apiErr.StatusCode, textx.FirstLine(apiErr.Error()))
 		}
 		return Response{}, err
 	}
@@ -80,9 +81,4 @@ func (p *anthropicProvider) Complete(ctx context.Context, req Request) (Response
 	}
 	in := resp.Usage.InputTokens + resp.Usage.CacheCreationInputTokens + resp.Usage.CacheReadInputTokens
 	return Response{Text: text.String(), Model: resp.Model, InputTokens: in, OutputTokens: resp.Usage.OutputTokens}, nil
-}
-
-func firstLine(s string) string {
-	s, _, _ = strings.Cut(s, "\n")
-	return s
 }

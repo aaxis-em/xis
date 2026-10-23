@@ -55,7 +55,3 @@ func Init(path string, verbose bool) {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(out, &slog.HandlerOptions{Level: level})))
 }
-
-func Discard() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
-}

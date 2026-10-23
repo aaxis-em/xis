@@ -16,6 +16,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/config"
+	"github.com/aaxis-em/xis/internal/lockfile"
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
 )
@@ -524,6 +525,31 @@ func TestE2EGC(t *testing.T) {
 	again, _ := run(t, "gc")
 	if !strings.Contains(again, "snapshots of 0 sessions") {
 		t.Errorf("second gc: %s", again)
+	}
+
+	spool := config.DefaultPaths().Spool
+	old := time.Now().Add(-48 * time.Hour)
+	for _, name := range []string{"done.lock", "done.jsonl.wlock", "done.ingest.lock", "running.lock", "running.jsonl", "fresh.lock", "held.lock"} {
+		p := filepath.Join(spool, name)
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if name != "fresh.lock" {
+			_ = os.Chtimes(p, old, old)
+		}
+	}
+	held, err := lockfile.Acquire(filepath.Join(spool, "held.lock"), time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Release()
+	if out, _ := run(t, "gc"); !strings.Contains(out, "removed 3 lock files") {
+		t.Errorf("lock cleanup: %s", out)
+	}
+	for _, name := range []string{"running.lock", "fresh.lock", "held.lock"} {
+		if _, err := os.Stat(filepath.Join(spool, name)); err != nil {
+			t.Errorf("%s removed", name)
+		}
 	}
 }
 

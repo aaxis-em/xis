@@ -470,3 +470,27 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The release binary was 47 MB, and a slow connection took minutes for the install. The review UI used glamour for the Markdown of LLM answers. glamour runs `text/template`, and that package calls methods by reflection. Then the Go linker must keep every exported method of every type, for example the full Anthropic SDK.
 - **Choice:** A small renderer in `internal/tui` formats the answers: headings, lists, code blocks, bold text and code spans. `scripts/check-size.sh` fails in CI when the binary calls methods by reflection again.
 - **Why:** The binary went from 46.7 MB to 26.6 MB, and the download from 14.9 MB to 9.4 MB. Answers are short text with citations, so the small renderer is enough.
+
+## D80. User PATH on Windows
+
+- **Context:** `install.ps1` read the user PATH with `[Environment]::GetEnvironmentVariable` and wrote it with `SetEnvironmentVariable`. The first expands entries such as `%JAVA_HOME%\bin`, and the second stores the result as plain text. So each install froze the variables in the PATH of the user.
+- **Choice:** The script reads the raw registry value with `DoNotExpandEnvironmentNames` and writes it as `ExpandString`. Then it deletes an unused variable with `SetEnvironmentVariable`, so that Windows tells open programs about the change. The Windows CI job tests a PATH with a `%VAR%` entry.
+- **Why:** An installer must not change settings that it does not own.
+
+## D81. Secret rules without the gitleaks library
+
+- **Context:** xis used the gitleaks library only for its default rules. The library brought 50 of the 103 Go modules in the binary, for example archive readers and a config system.
+- **Choice:** `internal/redact` embeds `config/gitleaks.toml` of gitleaks v8.30.1 with its MIT license and applies it in about 150 lines. The code copies the gitleaks logic for text. That is the keyword filter, the secret group, the entropy limit and the allowlists. It also covers the `gitleaks:allow` marker and the priority of specific rules over generic rules. Rules that need a file path do not apply to text, as in gitleaks. A comparison with gitleaks on 8,876 texts gave the same 839 findings.
+- **Why:** The binary went from 26.6 MB to 23.2 MB, and 50 modules fewer need security updates. To update the rules, copy a newer `gitleaks.toml`.
+
+## D82. Lock files after a session
+
+- **Context:** D68 keeps the lock files of a session, because another process can hold one. Nothing removed them, so the spool directory grew by up to three empty files for each session.
+- **Choice:** `xis gc` removes the lock file of a session without a spool file. The file must be older than one day, and xis must be able to take the lock at that moment.
+- **Why:** A lock that no process holds and that has no spool file belongs to a finished session.
+
+## D83. No stored answers of `xis ask`
+
+- **Context:** `xis ask` wrote each answer to the table `qa`, but no command read the table.
+- **Choice:** xis does not store the answers. The table stays, because SQLite migrations only add. The LLM cache already makes a repeated question free.
+- **Why:** Data that nothing reads only grows.

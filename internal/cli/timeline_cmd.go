@@ -11,6 +11,7 @@ import (
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 func init() { register(newTimelineCmd) }
@@ -144,7 +145,7 @@ func printTimeline(a *App, tl timelineData) {
 		if t.Test != "" {
 			status += " [test " + t.Test + "]"
 		}
-		line := fmt.Sprintf("%4d %7s %s%-9s %s%s", t.Seq, off, indent, label, oneLine(t.Text, 90), status)
+		line := fmt.Sprintf("%4d %7s %s%-9s %s%s", t.Seq, off, indent, label, textx.OneLine(t.Text, 90), status)
 		if t.Depth > 0 {
 			line += "  (" + t.Actor + ")"
 		}

@@ -10,9 +10,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
-
-	"github.com/zricethezav/gitleaks/v8/detect"
 
 	"github.com/aaxis-em/xis/internal/config"
 )
@@ -23,28 +20,18 @@ type Finding struct {
 }
 
 type Redactor struct {
-	det      *detect.Detector
+	rules    *ruleSet
 	patterns []*regexp.Regexp
 	entropy  float64
 	minLen   int
-	mu       sync.Mutex
 }
 
-var loadDetector = sync.OnceValues(func() (*detect.Detector, error) {
-	d, err := detect.NewDetectorDefaultConfig()
-	if err != nil {
-		return nil, err
-	}
-	d.Redact = 0
-	return d, nil
-})
-
 func New(cfg config.Redact) (*Redactor, error) {
-	det, err := loadDetector()
+	rules, err := loadRules()
 	if err != nil {
 		return nil, fmt.Errorf("load secret rules: %w", err)
 	}
-	r := &Redactor{det: det, entropy: cfg.EntropyThreshold, minLen: cfg.EntropyMinLength}
+	r := &Redactor{rules: rules, entropy: cfg.EntropyThreshold, minLen: cfg.EntropyMinLength}
 	if r.minLen <= 0 {
 		r.minLen = 20
 	}
@@ -103,19 +90,7 @@ func (r *Redactor) Findings(s string) []Finding {
 	if s == "" {
 		return nil
 	}
-	var out []Finding
-	r.mu.Lock()
-	found := r.det.DetectString(s)
-	r.mu.Unlock()
-	for _, f := range found {
-		secret := f.Secret
-		if secret == "" {
-			secret = f.Match
-		}
-		if secret != "" {
-			out = append(out, Finding{Rule: f.RuleID, Secret: secret})
-		}
-	}
+	out := r.rules.find(s)
 	for _, re := range r.patterns {
 		for _, m := range re.FindAllStringSubmatch(s, -1) {
 			secret := m[0]

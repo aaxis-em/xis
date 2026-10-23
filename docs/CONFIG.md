@@ -69,8 +69,8 @@ paths = ["internal/auth/", "docs/"]
 | `api_key_env` | string | `ANTHROPIC_API_KEY` | The environment variable that holds the API key. |
 | `max_usd_per_change` | float (USD) | `0.50` | xis stops the analysis of one change at this estimated cost. 0 turns off the guard. |
 | `send_code` | bool | `true` | If false, xis sends only metadata, paths and agent text, never file contents or tool output. |
-| `price_input_per_mtok` | float (USD) | `3.0` | The input price per 1 million tokens, for the cost estimate. |
-| `price_output_per_mtok` | float (USD) | `15.0` | The output price per 1 million tokens, for the cost estimate. |
+| `price_input_per_mtok` | float (USD) | `2.0` | The input price per 1 million tokens, for the cost estimate. The default is the price of Claude Sonnet 5.5. |
+| `price_output_per_mtok` | float (USD) | `10.0` | The output price per 1 million tokens, for the cost estimate. |
 | `max_tokens` | int (tokens) | `4096` | The maximum response size when a task does not set one. |
 
 Example for Ollama:

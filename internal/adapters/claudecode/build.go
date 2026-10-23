@@ -11,6 +11,7 @@ import (
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/testdetect"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 type Input struct {
@@ -600,7 +601,7 @@ func ToolSummary(tool, input, cwd string) string {
 	}
 	switch {
 	case in.Command != "":
-		return tool + ": " + firstLine(in.Command)
+		return tool + ": " + textx.OneLine(textx.FirstLine(strings.TrimSpace(in.Command)), 200)
 	case in.FilePath != "":
 		return tool + " " + rel(in.FilePath)
 	case in.NotebookPath != "":
@@ -617,14 +618,6 @@ func ToolSummary(tool, input, cwd string) string {
 		return tool + " " + rel(in.Path)
 	}
 	return tool
-}
-
-func firstLine(s string) string {
-	s, _, _ = strings.Cut(strings.TrimSpace(s), "\n")
-	if len(s) > 200 {
-		s = s[:200] + "…"
-	}
-	return s
 }
 
 // ToolPaths returns the file paths that a tool call names in its input.

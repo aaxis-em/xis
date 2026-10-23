@@ -13,18 +13,6 @@ func (s *Store) PutChange(c model.Change) error {
 		c.ID, c.RepoID, c.BaseRef, c.TargetRef, jsonList(c.SessionIDs), ts(c.CreatedAt))
 }
 
-func (s *Store) GetChange(id string) (model.Change, error) {
-	var c model.Change
-	var repo, base, target, sids, created sql.NullString
-	err := s.row(`SELECT id, repo_id, base_ref, target_ref, session_ids, created_at FROM changes WHERE id = ?`, id).
-		Scan(&c.ID, &repo, &base, &target, &sids, &created)
-	if errors.Is(err, sql.ErrNoRows) {
-		return c, ErrNotFound
-	}
-	c.RepoID, c.BaseRef, c.TargetRef, c.SessionIDs, c.CreatedAt = str(repo), str(base), str(target), parseList(sids), parseTS(created)
-	return c, err
-}
-
 func (s *Store) DeleteChangeHunks(changeID string) error {
 	for _, q := range []string{
 		`DELETE FROM hunk_provenance WHERE hunk_id IN (SELECT id FROM hunks WHERE change_id = ?)`,
@@ -54,14 +42,6 @@ func scanHunk(sc interface{ Scan(...any) error }) (model.Hunk, error) {
 	return h, err
 }
 
-func (s *Store) GetHunk(id string) (model.Hunk, error) {
-	h, err := scanHunk(s.row(`SELECT `+hunkCols+` FROM hunks WHERE id = ?`, id))
-	if errors.Is(err, sql.ErrNoRows) {
-		return h, ErrNotFound
-	}
-	return h, err
-}
-
 func (s *Store) ListHunks(changeID string) ([]model.Hunk, error) {
 	rows, err := s.query(`SELECT `+hunkCols+` FROM hunks WHERE change_id = ? ORDER BY file_path, new_start, old_start`, changeID)
 	if err != nil {
@@ -83,68 +63,12 @@ func (s *Store) SetHunkUnit(hunkID, unitID string) error {
 	return s.exec(`UPDATE hunks SET review_unit_id = ? WHERE id = ?`, unitID, hunkID)
 }
 
-func (s *Store) SetHunkChangeType(hunkID string, ct model.ChangeType) error {
-	return s.exec(`UPDATE hunks SET change_type = ? WHERE id = ?`, string(ct), hunkID)
-}
-
 func (s *Store) PutProvenance(p model.HunkProvenance) error {
 	return s.exec(`INSERT OR REPLACE INTO hunk_provenance (hunk_id, step_id, lines) VALUES (?,?,?)`, p.HunkID, p.StepID, p.Lines)
 }
 
-func (s *Store) ListProvenance(changeID string) ([]model.HunkProvenance, error) {
-	rows, err := s.query(`SELECT p.hunk_id, p.step_id, p.lines FROM hunk_provenance p JOIN hunks h ON h.id = p.hunk_id
-		WHERE h.change_id = ? ORDER BY p.hunk_id, p.step_id`, changeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.HunkProvenance
-	for rows.Next() {
-		var p model.HunkProvenance
-		if err := rows.Scan(&p.HunkID, &p.StepID, &p.Lines); err != nil {
-			return nil, err
-		}
-		out = append(out, p)
-	}
-	return out, rows.Err()
-}
-
-func (s *Store) HunksOfStep(changeID, stepID string) ([]string, error) {
-	rows, err := s.query(`SELECT p.hunk_id FROM hunk_provenance p JOIN hunks h ON h.id = p.hunk_id WHERE h.change_id = ? AND p.step_id = ?`, changeID, stepID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
-}
-
 func (s *Store) PutHunkIntent(x model.HunkIntent) error {
 	return s.exec(`INSERT OR REPLACE INTO hunk_intent (hunk_id, intent_item_id, confidence) VALUES (?,?,?)`, x.HunkID, x.IntentItemID, x.Confidence)
-}
-
-func (s *Store) ListHunkIntent(changeID string) ([]model.HunkIntent, error) {
-	rows, err := s.query(`SELECT i.hunk_id, i.intent_item_id, i.confidence FROM hunk_intent i JOIN hunks h ON h.id = i.hunk_id WHERE h.change_id = ?`, changeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.HunkIntent
-	for rows.Next() {
-		var x model.HunkIntent
-		if err := rows.Scan(&x.HunkID, &x.IntentItemID, &x.Confidence); err != nil {
-			return nil, err
-		}
-		out = append(out, x)
-	}
-	return out, rows.Err()
 }
 
 func (s *Store) PutRationale(r model.Rationale) error {
@@ -257,30 +181,6 @@ func (s *Store) HunkStatuses(keys []string) (map[string]string, error) {
 		keys = keys[n:]
 	}
 	return out, nil
-}
-
-func (s *Store) PutQA(x model.QA) error {
-	return s.exec(`INSERT OR REPLACE INTO qa (id, change_id, question, answer, cited_step_ids, cited_hunk_ids, model, created_at) VALUES (?,?,?,?,?,?,?,?)`,
-		x.ID, x.ChangeID, x.Question, x.Answer, jsonList(x.CitedStepIDs), jsonList(x.CitedHunkIDs), x.Model, ts(x.CreatedAt))
-}
-
-func (s *Store) ListQA(changeID string) ([]model.QA, error) {
-	rows, err := s.query(`SELECT id, change_id, question, answer, cited_step_ids, cited_hunk_ids, model, created_at FROM qa WHERE change_id = ? ORDER BY created_at`, changeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []model.QA
-	for rows.Next() {
-		var x model.QA
-		var q, a, cs, ch, m, c sql.NullString
-		if err := rows.Scan(&x.ID, &x.ChangeID, &q, &a, &cs, &ch, &m, &c); err != nil {
-			return nil, err
-		}
-		x.Question, x.Answer, x.CitedStepIDs, x.CitedHunkIDs, x.Model, x.CreatedAt = str(q), str(a), parseList(cs), parseList(ch), str(m), parseTS(c)
-		out = append(out, x)
-	}
-	return out, rows.Err()
 }
 
 func (s *Store) ListChanges(repoID string) ([]model.Change, error) {

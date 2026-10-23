@@ -260,16 +260,6 @@ func (s *Shadow) Take(sessionID, label string) (string, error) {
 	return commit, nil
 }
 
-// TakeDetached records the working tree as a commit on top of parent without
-// moving any session ref.
-func (s *Shadow) TakeDetached(indexName, label, parent string) (string, error) {
-	tree, err := s.WriteTree(indexName)
-	if err != nil {
-		return "", err
-	}
-	return s.CommitTree(tree, "xis "+label, parent)
-}
-
 func (s *Shadow) TreeOf(commit string) (string, error) {
 	return s.Git().Run("rev-parse", commit+"^{tree}")
 }
@@ -278,20 +268,6 @@ func (s *Shadow) DeleteSession(sessionID string) error {
 	_, err := s.Git().Run("update-ref", "-d", SessionRef(sessionID))
 	_ = os.Remove(s.indexPath(sessionID))
 	return err
-}
-
-func (s *Shadow) Sessions() ([]string, error) {
-	out, err := s.Git().Run("for-each-ref", "--format=%(refname)", "refs/xis/sessions/")
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for _, l := range strings.Split(out, "\n") {
-		if l != "" {
-			ids = append(ids, strings.TrimPrefix(l, "refs/xis/sessions/"))
-		}
-	}
-	return ids, nil
 }
 
 func (s *Shadow) GC() error {

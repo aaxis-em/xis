@@ -275,12 +275,6 @@ type QA struct {
 	CreatedAt    time.Time
 }
 
-type Blob struct {
-	SHA256  string
-	Size    int64
-	Content []byte
-}
-
 func NewID() string { return ulid.Make().String() }
 
 // StableIDPrefix is the time part of a StableID made with a zero time.
@@ -321,13 +315,4 @@ type Trace struct {
 	Snapshots []SnapshotMark
 	Edits     []Edit
 	Warnings  []string
-}
-
-func (t *Trace) ToolCall(stepID string) *ToolCall {
-	for i := range t.ToolCalls {
-		if t.ToolCalls[i].StepID == stepID {
-			return &t.ToolCalls[i]
-		}
-	}
-	return nil
 }

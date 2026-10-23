@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/aaxis-em/xis/internal/capture"
+	"github.com/aaxis-em/xis/internal/lockfile"
 	"github.com/aaxis-em/xis/internal/snapshot"
 )
 
@@ -18,6 +20,7 @@ type gcResult struct {
 	SnapshotSessions int      `json:"snapshot_sessions_removed"`
 	ShadowRepos      int      `json:"shadow_repos_collected"`
 	SpoolFiles       int      `json:"spool_files_removed"`
+	LockFiles        int      `json:"lock_files_removed"`
 	CacheFiles       int      `json:"llm_cache_files_removed"`
 	Errors           []string `json:"errors,omitempty"`
 }
@@ -87,6 +90,7 @@ The database keeps the sessions. Old sessions lose their line attribution, becau
 					}
 				}
 			}
+			res.LockFiles = removeIdleLocks(a.Paths.Spool, now.Add(-24*time.Hour), dryRun)
 			_ = filepath.WalkDir(a.Paths.LLMCache, func(p string, d os.DirEntry, err error) error {
 				if err != nil || d.IsDir() {
 					return nil
@@ -108,6 +112,7 @@ The database keeps the sessions. Old sessions lose their line attribution, becau
 			}
 			a.printf("%s snapshots of %d sessions (older than %d days)\n", verb, res.SnapshotSessions, a.Cfg.Retention.SnapshotsDays)
 			a.printf("%s %d spool files (older than %d days)\n", verb, res.SpoolFiles, a.Cfg.Retention.RawDays)
+			a.printf("%s %d lock files of finished sessions\n", verb, res.LockFiles)
 			a.printf("%s %d LLM cache files\n", verb, res.CacheFiles)
 			if !dryRun {
 				a.printf("ran git gc on %d shadow repositories\n", res.ShadowRepos)
@@ -120,4 +125,37 @@ The database keeps the sessions. Old sessions lose their line attribution, becau
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what gc would remove, and remove nothing")
 	return cmd
+}
+
+// removeIdleLocks deletes old lock files of sessions without a spool file that no process holds.
+func removeIdleLocks(spool string, cut time.Time, dryRun bool) int {
+	paths, _ := filepath.Glob(filepath.Join(spool, "*lock"))
+	n := 0
+	for _, p := range paths {
+		name := filepath.Base(p)
+		sid := name
+		for _, suffix := range []string{".ingest.lock", ".jsonl.wlock", ".lock"} {
+			if strings.HasSuffix(name, suffix) {
+				sid = strings.TrimSuffix(name, suffix)
+				break
+			}
+		}
+		info, err := os.Stat(p)
+		if sid == name || err != nil || !info.ModTime().Before(cut) {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(spool, sid+".jsonl")); err == nil {
+			continue
+		}
+		l, err := lockfile.Acquire(p, 0)
+		if err != nil {
+			continue
+		}
+		l.Release()
+		n++
+		if !dryRun {
+			_ = os.Remove(p)
+		}
+	}
+	return n
 }

@@ -23,5 +23,10 @@ go list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}} {{.Dir}
 			echo
 		done
 	done <"$out.mods"
+	echo "================================================================"
+	echo "github.com/zricethezav/gitleaks/v8 config/gitleaks.toml (secret rules in internal/redact)"
+	echo "================================================================"
+	echo
+	cat internal/redact/gitleaks.LICENSE
 } >"$out"
 rm -f "$out.mods"

@@ -2,7 +2,6 @@ package store
 
 import (
 	"database/sql"
-	"errors"
 
 	"github.com/aaxis-em/xis/internal/model"
 )
@@ -22,14 +21,6 @@ func scanStep(sc interface{ Scan(...any) error }) (model.Step, error) {
 	x.ActorID, x.ParentStepID = str(actor), str(parent)
 	x.TsStart, x.TsEnd = parseTS(start), parseTS(end)
 	x.Kind, x.Text, x.Snapshot, x.Summary = model.StepKind(str(kind)), str(text), str(snap), str(summary)
-	return x, err
-}
-
-func (s *Store) GetStep(id string) (model.Step, error) {
-	x, err := scanStep(s.row(`SELECT `+stepCols+` FROM steps WHERE id = ?`, id))
-	if errors.Is(err, sql.ErrNoRows) {
-		return x, ErrNotFound
-	}
 	return x, err
 }
 
@@ -76,14 +67,6 @@ func scanToolCall(sc interface{ Scan(...any) error }) (model.ToolCall, error) {
 		x.ExitCode = &v
 	}
 	x.OK, x.DurationMS = ok.Int64 != 0, dur.Int64
-	return x, err
-}
-
-func (s *Store) GetToolCall(stepID string) (model.ToolCall, error) {
-	x, err := scanToolCall(s.row(`SELECT `+toolCols+` FROM tool_calls WHERE step_id = ?`, stepID))
-	if errors.Is(err, sql.ErrNoRows) {
-		return x, ErrNotFound
-	}
 	return x, err
 }
 
@@ -195,17 +178,4 @@ func (s *Store) ListIntentItems(sessionIDs ...string) ([]model.IntentItem, error
 		out = append(out, x)
 	}
 	return out, rows.Err()
-}
-
-func (s *Store) PutBlob(b model.Blob) error {
-	return s.exec(`INSERT OR IGNORE INTO blobs (sha256, size, content) VALUES (?,?,?)`, b.SHA256, b.Size, b.Content)
-}
-
-func (s *Store) GetBlob(sha string) (model.Blob, error) {
-	var b model.Blob
-	err := s.row(`SELECT sha256, size, content FROM blobs WHERE sha256 = ?`, sha).Scan(&b.SHA256, &b.Size, &b.Content)
-	if errors.Is(err, sql.ErrNoRows) {
-		return b, ErrNotFound
-	}
-	return b, err
 }

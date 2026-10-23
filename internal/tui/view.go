@@ -8,6 +8,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/model"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 const (
@@ -37,7 +38,7 @@ func (m *Model) View() string {
 func (m *Model) header() string {
 	d := m.data
 	brand := " ∂ xis "
-	left := fmt.Sprintf("· %s · %s (%s) · %d steps · %d files ", oneLine(d.Title, 40), d.Agent, d.Fidelity, d.Steps, d.Files)
+	left := fmt.Sprintf("· %s · %s (%s) · %d steps · %d files ", textx.OneLine(d.Title, 40), d.Agent, d.Fidelity, d.Steps, d.Files)
 	if strings.Contains(d.Status, "no_transcript") {
 		left += "· no transcript "
 	}
@@ -126,7 +127,7 @@ func (m *Model) promptPanel() []string {
 	}
 	label := fmt.Sprintf(" PROMPT #%d (%d of %d) ", t.prompt.Seq, m.prompt+1, len(m.turns))
 	hint := "  i: full prompt "
-	text := fit(oneLine(t.prompt.Text, m.width), max(m.width-lipgloss.Width(label)-len(hint), 0))
+	text := fit(textx.OneLine(t.prompt.Text, m.width), max(m.width-lipgloss.Width(label)-len(hint), 0))
 	return []string{m.st.focusTitle.Render(label) + text + m.st.dim.Render(hint)}
 }
 
@@ -162,7 +163,7 @@ func (m *Model) unitsPane(w, h int) []string {
 	if n := len(m.data.Intent); n > 0 {
 		intent = append(intent, m.st.title.Render("INTENT"))
 		for i, it := range m.data.Intent[:min(n, maxIntentRows)] {
-			intent = append(intent, fmt.Sprintf("%s #%d %s", intentGlyph(it.Status), i+1, oneLine(it.Text, w)))
+			intent = append(intent, fmt.Sprintf("%s #%d %s", intentGlyph(it.Status), i+1, textx.OneLine(it.Text, w)))
 		}
 		if n > maxIntentRows {
 			intent = append(intent, m.st.dim.Render(fmt.Sprintf("  … %d more", n-maxIntentRows)))
@@ -275,7 +276,7 @@ func (m *Model) promptRow(i int, text string, hunks int, w int) string {
 		marker = "▸ "
 	}
 	count := fmt.Sprintf(" %d", hunks)
-	label := fit(marker+oneLine(text, w), w-len(count))
+	label := fit(marker+textx.OneLine(text, w), w-len(count))
 	if i == m.prompt {
 		return m.st.sel.Render(label + count)
 	}
@@ -354,7 +355,7 @@ func (m *Model) whyPane(w, h int) []string {
 				lines_ = p.Lines
 			}
 		}
-		add(fmt.Sprintf("Step %d · %s%s · %d lines", st.Seq, oneLine(st.Text, 60), who, lines_))
+		add(fmt.Sprintf("Step %d · %s%s · %d lines", st.Seq, textx.OneLine(st.Text, 60), who, lines_))
 	}
 	if unattributed > 0 && len(stepIDs) > 0 {
 		add(m.st.dim.Render(fmt.Sprintf("%d lines unattributed", unattributed)))
@@ -371,16 +372,16 @@ func (m *Model) whyPane(w, h int) []string {
 		} else if near := sd.AgentTextNear(first.ID, hk.FilePath, 3); len(near) > 0 {
 			add("Agent text near this edit:")
 			for _, t := range near {
-				add(m.st.quote.Render(fmt.Sprintf("  %q", oneLine(t.Text, 240))))
+				add(m.st.quote.Render(fmt.Sprintf("  %q", textx.OneLine(t.Text, 240))))
 			}
 		}
 		if ins, ok := sd.InstructionFor(first.ID); ok {
-			add(fmt.Sprintf("Instruction: #%d %q", ins.Seq, oneLine(ins.Text, 120)))
+			add(fmt.Sprintf("Instruction: #%d %q", ins.Seq, textx.OneLine(ins.Text, 120)))
 		}
 		if ev := sd.EvidenceBefore(first.ID, 5); len(ev) > 0 {
 			add("Evidence:")
 			for _, e := range ev {
-				s := fmt.Sprintf("  %s (s%d)", oneLine(e.Text, 50), e.Seq)
+				s := fmt.Sprintf("  %s (s%d)", textx.OneLine(e.Text, 50), e.Seq)
 				if r, ok := sd.TestRunOf(e.ID); ok {
 					s += " " + strings.ToUpper(r.Outcome)
 				}
@@ -389,7 +390,7 @@ func (m *Model) whyPane(w, h int) []string {
 		}
 		for _, tr := range sd.TestRuns {
 			if st, ok := sd.Step(tr.StepID); ok && st.Seq > first.Seq {
-				add(fmt.Sprintf("  later: %s (s%d) %s", oneLine(tr.Command, 40), st.Seq, strings.ToUpper(tr.Outcome)))
+				add(fmt.Sprintf("  later: %s (s%d) %s", textx.OneLine(tr.Command, 40), st.Seq, strings.ToUpper(tr.Outcome)))
 			}
 		}
 	}
@@ -415,7 +416,7 @@ func (m *Model) viewTimeline() []string {
 		if t.Tool != "" {
 			label = t.Tool
 		}
-		row := fmt.Sprintf("%4d %s%-12s %s", t.Step.Seq, strings.Repeat("  ", t.Depth), oneLine(label, 12), oneLine(t.Step.Text, 80))
+		row := fmt.Sprintf("%4d %s%-12s %s", t.Step.Seq, strings.Repeat("  ", t.Depth), textx.OneLine(label, 12), textx.OneLine(t.Step.Text, 80))
 		if t.Test != "" {
 			row += " [test " + t.Test + "]"
 		}
@@ -501,7 +502,7 @@ func (m *Model) viewAsk() []string {
 			row := fmt.Sprintf("  [%s:%s]", c.kind, c.id)
 			if c.kind == "step" {
 				if st, _, ok := m.data.step(c.id); ok {
-					row += fmt.Sprintf(" step %d %s", st.Seq, oneLine(st.Text, 60))
+					row += fmt.Sprintf(" step %d %s", st.Seq, textx.OneLine(st.Text, 60))
 				}
 			}
 			if i == m.citeSel {

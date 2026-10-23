@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/aaxis-em/xis/internal/config"
+	"github.com/aaxis-em/xis/internal/textx"
 	"github.com/aaxis-em/xis/internal/xlog"
 )
 
@@ -159,18 +160,13 @@ func Execute(args []string) int {
 	} else if strings.Contains(msg, "unknown command") || strings.Contains(msg, "flag") || strings.Contains(msg, "arg") {
 		hint = "Run `xis --help` for usage."
 	}
-	fmt.Fprintf(os.Stderr, "xis: %s\n", firstLine(msg))
+	fmt.Fprintf(os.Stderr, "xis: %s\n", textx.FirstLine(msg))
 	if hint != "" {
 		fmt.Fprintf(os.Stderr, "hint: %s\n", hint)
 	}
 	if g.verbose && xe != nil && xe.Err != nil {
 		fmt.Fprintf(os.Stderr, "detail: %+v\n", xe.Err)
 	}
-	slog.Error("command failed", "err", firstLine(msg))
+	slog.Error("command failed", "err", textx.FirstLine(msg))
 	return code
-}
-
-func firstLine(s string) string {
-	s, _, _ = strings.Cut(s, "\n")
-	return s
 }

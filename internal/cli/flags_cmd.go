@@ -15,6 +15,7 @@ import (
 	"github.com/aaxis-em/xis/internal/redact"
 	"github.com/aaxis-em/xis/internal/rules"
 	"github.com/aaxis-em/xis/internal/store"
+	"github.com/aaxis-em/xis/internal/textx"
 )
 
 func init() { register(newFlagsCmd) }
@@ -210,13 +211,13 @@ func printFlags(a *App, ca *changeAnalysis) {
 			suppressed = append(suppressed, f)
 			continue
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", f.Severity, f.RuleID, ca.location(f), oneLine(f.Message, 90), shortID(f.ID))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", f.Severity, f.RuleID, ca.location(f), textx.OneLine(f.Message, 90), shortID(f.ID))
 	}
 	_ = tw.Flush()
 	if len(suppressed) > 0 {
 		a.printf("\nsuppressed:\n")
 		for _, f := range suppressed {
-			a.printf("  %s %s %s: %s (reason: %s)\n", f.Severity, f.RuleID, ca.location(f), oneLine(f.Message, 70), f.SuppressReason)
+			a.printf("  %s %s %s: %s (reason: %s)\n", f.Severity, f.RuleID, ca.location(f), textx.OneLine(f.Message, 70), f.SuppressReason)
 		}
 	}
 }

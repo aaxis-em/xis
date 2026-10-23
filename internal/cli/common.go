@@ -95,15 +95,6 @@ func fmtDuration(d time.Duration) string {
 	return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
 }
 
-func oneLine(s string, n int) string {
-	s = strings.Join(strings.Fields(s), " ")
-	r := []rune(s)
-	if len(r) > n {
-		return string(r[:n-1]) + "…"
-	}
-	return s
-}
-
 func gitRun(repo string, args ...string) (string, error) {
 	return gitx.In(repo).Run(args...)
 }

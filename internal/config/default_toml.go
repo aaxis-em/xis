@@ -37,8 +37,8 @@ max_usd_per_change = 0.50
 # If false, xis sends only metadata, paths and agent text. It never sends file contents.
 send_code = true
 # Prices (USD per 1 million tokens) for the cost estimate.
-price_input_per_mtok = 3.0
-price_output_per_mtok = 15.0
+price_input_per_mtok = 2.0
+price_output_per_mtok = 10.0
 max_tokens = 4096
 
 [rules]

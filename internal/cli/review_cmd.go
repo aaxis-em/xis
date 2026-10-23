@@ -115,7 +115,7 @@ The UI works without an LLM.`,
 			}
 			cb := tui.Callbacks{SetUnitStatus: st.SetReviewUnitStatus, SetHunkStatus: st.SetHunkStatus}
 			if llmOn {
-				cb.Ask = a.askFunc(st, ca)
+				cb.Ask = a.askFunc(ca)
 			}
 			if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
 				return userErr("xis review needs a terminal", "Use `xis report --md` or `xis flags` for non-interactive output.", nil)

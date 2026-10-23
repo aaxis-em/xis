@@ -122,10 +122,6 @@ func TestTakeChain(t *testing.T) {
 	if st := git(t, repo, "status", "--porcelain"); !strings.Contains(st, "?? \"new file.txt\"") && !strings.Contains(st, "?? new file.txt") {
 		t.Errorf("user index changed: %s", st)
 	}
-	ids, err := sh.Sessions()
-	if err != nil || len(ids) != 1 || ids[0] != "sess-1" {
-		t.Errorf("sessions = %v, %v", ids, err)
-	}
 	if err := sh.DeleteSession("sess-1"); err != nil {
 		t.Fatal(err)
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aaxis-em/xis/internal/textx"
 	"io"
 	"os"
 	"os/exec"
@@ -26,15 +27,10 @@ func (e *Error) Error() string {
 	if msg == "" && e.Err != nil {
 		msg = e.Err.Error()
 	}
-	return fmt.Sprintf("git %s: %s", strings.Join(e.Args, " "), firstLine(msg))
+	return fmt.Sprintf("git %s: %s", strings.Join(e.Args, " "), textx.FirstLine(msg))
 }
 
 func (e *Error) Unwrap() error { return e.Err }
-
-func firstLine(s string) string {
-	s, _, _ = strings.Cut(s, "\n")
-	return s
-}
 
 // Variables that git sets for hooks would redirect our commands to the wrong repo or index.
 var inheritedGitVars = []string{

@@ -74,12 +74,20 @@ try {
 
 Write-Host "Installed xis $version to $(Join-Path $dir 'xis.exe')"
 if ($env:XIS_NO_PATH -ne '1') {
-	$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-	if (-not $userPath) { $userPath = '' }
-	if (-not (($userPath -split ';') -contains $dir)) {
-		[Environment]::SetEnvironmentVariable('Path', (($userPath.TrimEnd(';') + ';' + $dir).TrimStart(';')), 'User')
-		$env:Path = "$env:Path;$dir"
-		Write-Host "Added $dir to your user PATH. Open a new terminal to use xis."
+	# Read and write the raw registry value: [Environment]::GetEnvironmentVariable
+	# expands %VAR% entries and SetEnvironmentVariable stores them as plain text.
+	$key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+	try {
+		$userPath = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+		if (-not (($userPath -split ';') -contains $dir)) {
+			$key.SetValue('Path', (($userPath.TrimEnd(';') + ';' + $dir).TrimStart(';')), [Microsoft.Win32.RegistryValueKind]::ExpandString)
+			# Deleting a variable makes Windows tell open programs that the environment changed.
+			[Environment]::SetEnvironmentVariable('XIS_INSTALL_NOTIFY', $null, 'User')
+			$env:Path = "$env:Path;$dir"
+			Write-Host "Added $dir to your user PATH. Open a new terminal to use xis."
+		}
+	} finally {
+		$key.Close()
 	}
 }
 Write-Host "Next: run 'xis init' once, then 'xis hook install --agent claude-code' in each repository."

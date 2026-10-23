@@ -109,12 +109,3 @@ func block(lines []string, w, h, scroll int) []string {
 	}
 	return out
 }
-
-func oneLine(s string, n int) string {
-	s = strings.Join(strings.Fields(s), " ")
-	r := []rune(s)
-	if n > 0 && len(r) > n {
-		return string(r[:n-1]) + "…"
-	}
-	return s
-}
