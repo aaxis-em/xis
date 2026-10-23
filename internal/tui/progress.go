@@ -23,8 +23,21 @@ func HunkKey(h model.Hunk) string {
 	return hex.EncodeToString(sum[:8])
 }
 
+// key caches HunkKey, which the header needs for every hunk on each frame.
+func (m *Model) key(h model.Hunk) string {
+	if k, ok := m.keyCache[h.ID]; ok {
+		return k
+	}
+	if m.keyCache == nil {
+		m.keyCache = map[string]string{}
+	}
+	k := HunkKey(h)
+	m.keyCache[h.ID] = k
+	return k
+}
+
 func (m *Model) hunkStatus(h model.Hunk) string {
-	if s := m.data.HunkStatus[HunkKey(h)]; s != "" {
+	if s := m.data.HunkStatus[m.key(h)]; s != "" {
 		return s
 	}
 	return "unreviewed"
@@ -115,7 +128,7 @@ func (m *Model) saveHunkStatus(hunks []model.Hunk, status string) bool {
 		m.data.HunkStatus = map[string]string{}
 	}
 	for _, h := range hunks {
-		k := HunkKey(h)
+		k := m.key(h)
 		if m.cb.SetHunkStatus != nil {
 			if err := m.cb.SetHunkStatus(k, status); err != nil {
 				m.status = "save status: " + err.Error()

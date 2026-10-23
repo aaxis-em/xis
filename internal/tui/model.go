@@ -50,9 +50,11 @@ type Model struct {
 	prev          viewKind
 	focus         pane
 
-	units  []Unit
-	turns  []turn
-	prompt int
+	units    []Unit
+	turns    []turn
+	prompt   int
+	keyCache map[string]string
+	all      []model.Hunk
 
 	unit, hunk int
 	diffScroll int
@@ -81,6 +83,7 @@ func New(d *Data, cb Callbacks, color bool) *Model {
 	in.CharLimit = 500
 	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, mdStyle: "dark", prompt: -1}
 	m.turns = buildTurns(d)
+	m.all = d.hunks()
 	m.applyPrompt()
 	m.Editor = defaultEditor
 	return m

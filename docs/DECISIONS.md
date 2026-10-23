@@ -428,3 +428,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A unit can hold many hunks. The user wanted to mark each hunk and see the progress of a unit.
 - **Choice:** `u` and `x` mark the current hunk, and `U` marks all hunks of the unit. `u` then goes to the next hunk. The table `hunk_status` keeps the status by a key of the file and the hunk lines, without the line numbers. The unit shows a mark that fills up, and its status follows from its hunks. xis still writes the unit status, for the report and the note. A unit status from an older xis goes to its hunks once.
 - **Why:** Hunks get new rows and IDs on each run, so the status needs its own key. A key without line numbers survives edits in other parts of the file, and the session, `--staged` and `--pr` views share it.
+
+## D72. Logo
+
+- **Context:** The repository got a logo in `assets/logo`: a mark, a name, lockups for light and dark backgrounds, and icons.
+- **Choice:** The README heading is the lockup. A `picture` element selects the dark or the light lockup by the theme of the reader. The review UI shows `∂ xis` in the accent color `#F5A524`, because a terminal cannot show an image. `∂` has the shape of the mark. `assets/logo/README.md` tells which file to use where.
+- **Why:** The README is the first page of the project. The color in the header connects the terminal UI with the logo, and it costs no space.

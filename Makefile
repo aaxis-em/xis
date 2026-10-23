@@ -37,13 +37,13 @@ lint: vet ## Run golangci-lint
 	$(GOLANGCI) run ./...
 
 docs-lint: ## Check the documents against the writing rules (warns only)
-	go run ./internal/tools/doclint README.md CONTRIBUTING.md docs
+	go run ./internal/tools/doclint README.md CONTRIBUTING.md docs assets/logo/README.md
 
 check: ## Run gofmt, lint, tests and a strict docs-lint (the gate before each commit)
 	@test -z "$$(gofmt -l .)" || { gofmt -l .; echo "run gofmt -w ."; exit 1; }
 	$(MAKE) lint
 	go test ./...
-	go run ./internal/tools/doclint -strict README.md CONTRIBUTING.md docs
+	go run ./internal/tools/doclint -strict README.md CONTRIBUTING.md docs assets/logo/README.md
 
 e2e: ## Run the end-to-end tests
 	go test -run 'E2E' -count=1 ./...

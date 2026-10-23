@@ -36,17 +36,18 @@ func (m *Model) View() string {
 
 func (m *Model) header() string {
 	d := m.data
-	left := fmt.Sprintf(" xis · %s · %s (%s) · %d steps · %d files ", oneLine(d.Title, 40), d.Agent, d.Fidelity, d.Steps, d.Files)
+	brand := " ∂ xis "
+	left := fmt.Sprintf("· %s · %s (%s) · %d steps · %d files ", oneLine(d.Title, 40), d.Agent, d.Fidelity, d.Steps, d.Files)
 	if strings.Contains(d.Status, "no_transcript") {
 		left += "· no transcript "
 	}
-	p := m.progressOf(d.hunks())
+	p := m.progressOf(m.all)
 	right := fmt.Sprintf(" %d/%d understood · %d high · %d med ", p.understood, p.total, d.flagCount(model.SevHigh), d.flagCount(model.SevMedium))
-	fill := m.width - lipgloss.Width(left) - lipgloss.Width(right)
+	fill := m.width - lipgloss.Width(brand) - lipgloss.Width(left) - lipgloss.Width(right)
 	if fill < 1 {
-		return m.st.header.Render(fit(left+right, m.width))
+		return m.st.brand.Render(brand) + m.st.header.Render(fit(left+right, max(m.width-lipgloss.Width(brand), 0)))
 	}
-	return m.st.header.Render(left + strings.Repeat("─", fill) + right)
+	return m.st.brand.Render(brand) + m.st.header.Render(left+strings.Repeat("─", fill)+right)
 }
 
 func (m *Model) footer() string {
@@ -196,7 +197,7 @@ func (m *Model) unitsPane(w, h int) []string {
 	if len(m.turns) == 0 {
 		lines = append(lines, m.st.dim.Render("none recorded"))
 	} else {
-		lines = append(lines, m.promptRow(-1, "All prompts", len(m.data.hunks()), w))
+		lines = append(lines, m.promptRow(-1, "All prompts", len(m.all), w))
 		for i, t := range m.turns {
 			lines = append(lines, m.promptRow(i, fmt.Sprintf("#%d %s", t.prompt.Seq, t.prompt.Text), t.hunks, w))
 		}

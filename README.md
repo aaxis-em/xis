@@ -1,4 +1,9 @@
-# xis
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/svg/xis-lockup-dark.svg">
+    <img alt="xis" src="assets/logo/svg/xis-lockup-light.svg" width="320">
+  </picture>
+</h1>
 
 xis is a terminal tool that shows what an AI coding agent did to your code and why. It links each changed hunk to the step that made it. It also shows the instruction, the agent text and the evidence for that step.
 
