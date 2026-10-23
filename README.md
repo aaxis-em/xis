@@ -33,6 +33,20 @@ xis captures Claude Code sessions live through hooks. It imports Codex CLI sessi
 
 ## Install
 
+With the install script, on Linux and macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/aaxis-em/xis/main/install.sh | sh
+```
+
+The script downloads the latest release for your system, checks its SHA-256 and puts `xis` in `~/.local/bin`. To read the script before you run it, download it first:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/aaxis-em/xis/main/install.sh
+less install.sh
+sh install.sh --version v0.1.0 --dir ~/bin
+```
+
 With Homebrew:
 
 ```sh

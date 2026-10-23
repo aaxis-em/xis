@@ -434,3 +434,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** The repository got a logo in `assets/logo`: a mark, a name, lockups for light and dark backgrounds, and icons.
 - **Choice:** The README heading is the lockup. A `picture` element selects the dark or the light lockup by the theme of the reader. The review UI shows `∂ xis` in the accent color `#F5A524`, because a terminal cannot show an image. `∂` has the shape of the mark. `assets/logo/README.md` tells which file to use where.
 - **Why:** The README is the first page of the project. The color in the header connects the terminal UI with the logo, and it costs no space.
+
+## D73. Install script and release workflow
+
+- **Context:** The user wanted to install xis with one `curl` command. GoReleaser built the archives, but no workflow published them. The release was a draft, and the Homebrew step failed without its token.
+- **Choice:** A tag `v*` starts `.github/workflows/release.yml`, which runs the tests and GoReleaser. GoReleaser publishes the release directly, without a draft. The cask step runs only when `HOMEBREW_TAP_GITHUB_TOKEN` is set. `install.sh` finds the release, downloads the archive for the system, checks its SHA-256 against `checksums.txt` and installs the binary in `~/.local/bin`. CI tests the script on Linux and macOS against a local release server.
+- **Why:** A draft release is not the latest release, and a download from it needs a login. The checksum check stops a damaged or changed download. The test runs the real script, so a change of the archive names in GoReleaser fails CI.

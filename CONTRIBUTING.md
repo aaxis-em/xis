@@ -20,6 +20,7 @@ Other targets:
 | `make fixtures-update` | Write the golden files again. |
 | `make docs-lint` | Check the documents against the writing rules (warns only). |
 | `make snapshot` | Build a local release with GoReleaser. |
+| `make install-test` | Test `install.sh` against a local release server. |
 
 The tests need a git identity only inside their own temporary repositories. They set it there.
 
@@ -60,3 +61,14 @@ The fixtures in `testdata/fixtures/claudecode` are real Claude Code data, scrubb
 ## Documents
 
 Write the documents in Simplified Technical English (ASD-STE100). Use short sentences, active voice and one word for one meaning. Use the terms in [docs/GLOSSARY.md](docs/GLOSSARY.md). Record each decision that the specification does not settle in [docs/DECISIONS.md](docs/DECISIONS.md).
+
+## Release
+
+1. Make sure that `make check` passes on `main`.
+2. Push a version tag, for example `git tag v0.1.0 && git push origin v0.1.0`.
+
+The workflow `.github/workflows/release.yml` runs the tests and GoReleaser. GoReleaser publishes the archives for Linux, macOS and Windows and `checksums.txt` to the GitHub release. `install.sh` downloads from that release.
+
+The Homebrew cask is optional. Set the repository secret `HOMEBREW_TAP_GITHUB_TOKEN` to a token that can write to `aaxis-em/homebrew-tap`. Without the secret, the release skips the cask.
+
+The install command works only for a public repository, because it downloads without a login.

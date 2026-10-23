@@ -56,7 +56,8 @@ homebrew_casks:
     homepage: https://github.com/aaxis-em/xis
     description: Show what an AI coding agent did to your code and why
     directory: Casks
-    skip_upload: auto
+    # The tap is optional: without the token, the release skips it.
+    skip_upload: '{{ if index .Env "HOMEBREW_TAP_GITHUB_TOKEN" }}auto{{ else }}true{{ end }}'
     completions:
       bash: completions/xis.bash
       zsh: completions/xis.zsh
@@ -66,10 +67,10 @@ homebrew_casks:
     repository:
       owner: aaxis-em
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+      token: '{{ index .Env "HOMEBREW_TAP_GITHUB_TOKEN" }}'
 
 release:
   github:
     owner: aaxis-em
     name: xis
-  draft: true
+  draft: false
