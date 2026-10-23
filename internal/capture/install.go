@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 
 	"github.com/aaxis-em/xis/internal/adapters/claudecode"
+	"github.com/aaxis-em/xis/internal/pathx"
 )
 
-const hookMarker = "xis hook claude-code"
+// hookRe finds an xis hook command, also in the Windows form
+// "C:/.../xis.exe" hook claude-code.
+var hookRe = regexp.MustCompile(`xis(\.exe)?["']?\s+hook\s+claude-code`)
 
 func HookCommand(xisCmd, event string) string {
 	return fmt.Sprintf("%s hook claude-code %s", xisCmd, event)
@@ -37,7 +40,7 @@ func IsHome(dir string) bool {
 	if d, err := filepath.EvalSymlinks(dir); err == nil {
 		dir = d
 	}
-	return filepath.Clean(dir) == filepath.Clean(home)
+	return pathx.Same(dir, home)
 }
 
 func SettingsPath(scope, repoDir, home string) (string, error) {
@@ -90,7 +93,7 @@ func isXisEntry(v any) bool {
 	}
 	c, _ := o.get("command")
 	s, _ := c.(string)
-	return strings.Contains(s, hookMarker)
+	return hookRe.MatchString(s)
 }
 
 func groupHooks(g any) []any {

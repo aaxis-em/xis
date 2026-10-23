@@ -33,8 +33,9 @@ race: ## Run the tests with the race detector (needs cgo)
 vet: ## Run go vet
 	go vet ./...
 
-lint: vet ## Run golangci-lint
+lint: vet ## Run golangci-lint, also for the Windows build
 	$(GOLANGCI) run ./...
+	GOOS=windows $(GOLANGCI) run ./...
 
 docs-lint: ## Check the documents against the writing rules (warns only)
 	go run ./internal/tools/doclint README.md CONTRIBUTING.md docs assets/logo/README.md

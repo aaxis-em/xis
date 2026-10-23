@@ -3,13 +3,13 @@ package claudecode
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/testdetect"
 )
 
@@ -592,7 +592,7 @@ func ToolSummary(tool, input, cwd string) string {
 	_ = json.Unmarshal([]byte(input), &in)
 	rel := func(p string) string {
 		if cwd != "" {
-			if r, err := filepath.Rel(cwd, p); err == nil && !strings.HasPrefix(r, "..") {
+			if r, ok := pathx.Rel(cwd, p); ok {
 				return r
 			}
 		}

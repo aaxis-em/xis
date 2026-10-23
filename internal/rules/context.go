@@ -9,6 +9,7 @@ import (
 	"github.com/aaxis-em/xis/internal/config"
 	"github.com/aaxis-em/xis/internal/gitx"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/redact"
 	"github.com/aaxis-em/xis/internal/store"
 	"github.com/aaxis-em/xis/internal/testdetect"
@@ -156,14 +157,14 @@ func (c *Context) IsSourceFile(path string) bool {
 // RelPath turns an absolute tool path into a repository path.
 func (c *Context) RelPath(p string) string {
 	p = strings.TrimSpace(p)
-	if c.RepoTop != "" && filepath.IsAbs(p) {
+	if c.RepoTop != "" {
 		for _, q := range []string{p, resolveExisting(p)} {
-			if strings.HasPrefix(q, c.RepoTop+"/") {
-				return strings.TrimPrefix(q, c.RepoTop+"/")
+			if r, ok := pathx.Rel(c.RepoTop, q); ok {
+				return r
 			}
 		}
 	}
-	return strings.TrimPrefix(p, "./")
+	return strings.TrimPrefix(filepath.ToSlash(p), "./")
 }
 
 // resolveExisting resolves symlinks in the longest existing prefix of p, so

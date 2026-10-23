@@ -9,7 +9,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -21,13 +21,23 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@example.com
       - run: go vet ./...
+      - name: Vet the Windows build
+        if: runner.os == 'Linux'
+        run: GOOS=windows go vet ./...
       - uses: golangci/golangci-lint-action@v8
+        if: runner.os != 'Windows'
         with:
           version: latest
-      - run: go test -race -gcflags=all=-d=checkptr=0 ./...
+      - name: Test with the race detector
+        if: runner.os != 'Windows'
+        run: go test -race -gcflags=all=-d=checkptr=0 ./...
         env:
           CGO_ENABLED: "1"
-      - run: make docs-lint
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        run: go test ./...
+      - if: runner.os != 'Windows'
+        run: make docs-lint
   install:
     strategy:
       matrix:
@@ -39,6 +49,14 @@ jobs:
         with:
           go-version-file: go.mod
       - run: sh scripts/test-install.sh
+  install-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: pwsh -NoLogo -NoProfile -File scripts/test-install.ps1
   cross:
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +66,6 @@ jobs:
           go-version-file: go.mod
       - name: Build for every target
         run: |
-          for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+          for t in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
             GOOS=${t%/*} GOARCH=${t#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/xis
           done

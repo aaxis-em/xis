@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -103,7 +104,7 @@ func TestHandlerSnapshotsAndSpool(t *testing.T) {
 		t.Errorf("spawned = %v", *spawned)
 	}
 	fi, _ := os.Stat(SpoolPath(h.Paths.Spool, "s1"))
-	if fi.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("spool mode %v", fi.Mode().Perm())
 	}
 }
@@ -201,7 +202,7 @@ func TestInstallMergeIdempotentUninstall(t *testing.T) {
 		}
 	}
 	fi, _ := os.Stat(path)
-	if fi.Mode().Perm() != 0o640 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o640 {
 		t.Errorf("mode changed to %v", fi.Mode().Perm())
 	}
 	again, err := Install(path, "/opt/xis")
@@ -321,6 +322,7 @@ func TestNoSnapshotOfTheHomeRepository(t *testing.T) {
 	h, _ := newHandler(t)
 	repo := newRepo(t)
 	t.Setenv("HOME", repo)
+	t.Setenv("USERPROFILE", repo)
 	sub := filepath.Join(repo, "test")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
@@ -332,5 +334,25 @@ func TestNoSnapshotOfTheHomeRepository(t *testing.T) {
 	}
 	if lines[0].Snapshot != nil || !strings.Contains(lines[0].SnapshotError, "home directory") {
 		t.Errorf("line = %+v", lines[0])
+	}
+}
+
+func TestWindowsHookCommandIsRecognized(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".claude", "settings.json")
+	cmd := `"C:/Users/Some One/AppData/Local/Programs/xis/xis.exe"`
+	if _, err := Install(path, cmd); err != nil {
+		t.Fatal(err)
+	}
+	if again, err := Install(path, cmd); err != nil || len(again) != 0 {
+		t.Errorf("second install changed %v (%v)", again, err)
+	}
+	if got, err := Installed(path); err != nil || len(got) == 0 {
+		t.Errorf("Windows hooks not found: %v %v", got, err)
+	}
+	if _, err := Uninstall(path); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := Installed(path); len(got) != 0 {
+		t.Errorf("hooks left after uninstall: %v", got)
 	}
 }

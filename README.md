@@ -47,6 +47,14 @@ less install.sh
 sh install.sh --version v0.1.0 --dir ~/bin
 ```
 
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/aaxis-em/xis/main/install.ps1 | iex
+```
+
+The script puts `xis.exe` in `%LOCALAPPDATA%\Programs\xis` and adds that folder to your user PATH. It also checks the SHA-256 of the download.
+
 With Homebrew:
 
 ```sh
@@ -59,7 +67,7 @@ With Go 1.26 or later:
 go install github.com/aaxis-em/xis/cmd/xis@latest
 ```
 
-xis needs git 2.31 or later. It is one static binary for Linux and macOS (amd64 and arm64). It also builds for Windows, but live capture supports only Linux and macOS.
+xis needs git 2.31 or later. It is one static binary for Linux, macOS and Windows (amd64 and arm64). On Windows, xis needs Git for Windows, which Claude Code also needs. xis keeps its config in `%APPDATA%\xis` and its data in `%LOCALAPPDATA%\xis`.
 
 ## Quickstart
 
@@ -117,7 +125,7 @@ The default provider is `auto`: Anthropic if `ANTHROPIC_API_KEY` is set, else no
 
 xis is local-first. It sends no telemetry.
 
-- **What xis stores:** the redacted steps, tool calls, edits and test runs of each session, in `~/.local/share/xis/xis.db`. The snapshots are in a shadow git repository in the same directory. All files have mode `0600`.
+- **What xis stores:** the redacted steps, tool calls, edits and test runs of each session, in `~/.local/share/xis/xis.db` (`%LOCALAPPDATA%\xis\xis.db` on Windows). The snapshots are in a shadow git repository in the same directory. On Linux and macOS, all files have mode `0600`.
 - **What xis removes:** secrets (gitleaks rules, high-entropy tokens and your own patterns), before it stores data and again before each LLM call.
 - **What leaves your machine:** nothing, unless you configure a remote LLM provider. Then xis sends only the steps and hunks that a task needs. With `llm.send_code = false`, it sends no file contents.
 

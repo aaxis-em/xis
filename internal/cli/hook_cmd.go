@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -98,6 +99,17 @@ func selfCommand() string {
 	}
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
+	}
+	return commandPath(exe, runtime.GOOS == "windows")
+}
+
+// commandPath quotes the path of the xis binary for a hook command. On
+// Windows, Claude Code and git run hooks with Git Bash, which reads a
+// backslash as an escape, so the path gets forward slashes. Double quotes
+// work in Git Bash and in cmd.exe.
+func commandPath(exe string, windows bool) string {
+	if windows {
+		return `"` + strings.ReplaceAll(exe, `\`, "/") + `"`
 	}
 	if strings.ContainsAny(exe, " '\"") {
 		return "'" + strings.ReplaceAll(exe, "'", `'\''`) + "'"

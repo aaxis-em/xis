@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -24,17 +25,29 @@ type Paths struct {
 	LLMCache   string
 }
 
+// DefaultPaths follows XDG_CONFIG_HOME and XDG_DATA_HOME. Without them it
+// uses ~/.config and ~/.local/share, and on Windows %APPDATA% and
+// %LOCALAPPDATA%.
 func DefaultPaths() Paths {
 	home, _ := os.UserHomeDir()
-	cfg := os.Getenv("XDG_CONFIG_HOME")
-	if cfg == "" || !filepath.IsAbs(cfg) {
-		cfg = filepath.Join(home, ".config")
+	cfg, data := filepath.Join(home, ".config"), filepath.Join(home, ".local", "share")
+	if runtime.GOOS == "windows" {
+		cfg, data = winDir("APPDATA", home, "Roaming"), winDir("LOCALAPPDATA", home, "Local")
 	}
-	data := os.Getenv("XDG_DATA_HOME")
-	if data == "" || !filepath.IsAbs(data) {
-		data = filepath.Join(home, ".local", "share")
+	if v := os.Getenv("XDG_CONFIG_HOME"); v != "" && filepath.IsAbs(v) {
+		cfg = v
+	}
+	if v := os.Getenv("XDG_DATA_HOME"); v != "" && filepath.IsAbs(v) {
+		data = v
 	}
 	return PathsAt(filepath.Join(cfg, "xis"), filepath.Join(data, "xis"))
+}
+
+func winDir(env, home, fallback string) string {
+	if v := os.Getenv(env); v != "" {
+		return v
+	}
+	return filepath.Join(home, "AppData", fallback)
 }
 
 func PathsAt(configDir, dataDir string) Paths {

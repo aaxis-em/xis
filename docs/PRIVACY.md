@@ -15,6 +15,8 @@ xis is local-first. It sends no telemetry. Data leaves your machine only if you 
 
 xis creates all directories with mode `0700` and all files with mode `0600`.
 
+On Windows, the config is in `%APPDATA%\xis` and the data is in `%LOCALAPPDATA%\xis`. Windows has no file modes. The access rules of your user profile protect these folders: by default, only you and the administrators can read them.
+
 ## Log
 
 By default the log contains only event names, session IDs and tool use IDs. It never contains payloads or tool output.

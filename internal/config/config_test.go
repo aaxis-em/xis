@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/BurntSushi/toml"
@@ -96,7 +97,7 @@ func TestSetInFile(t *testing.T) {
 		t.Errorf("got %+v %+v", c.LLM, c.Rules)
 	}
 	fi, _ := os.Stat(path)
-	if fi.Mode().Perm() != FileMode {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != FileMode {
 		t.Errorf("mode = %v", fi.Mode().Perm())
 	}
 }
@@ -112,17 +113,33 @@ func TestEnsurePermissions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if fi.Mode().Perm() != DirMode {
+		if runtime.GOOS != "windows" && fi.Mode().Perm() != DirMode {
 			t.Errorf("%s mode = %v", d, fi.Mode().Perm())
 		}
 	}
 }
 
 func TestDefaultPathsXDG(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/c")
-	t.Setenv("XDG_DATA_HOME", "/d")
+	c, d := filepath.Join(t.TempDir(), "c"), filepath.Join(t.TempDir(), "d")
+	t.Setenv("XDG_CONFIG_HOME", c)
+	t.Setenv("XDG_DATA_HOME", d)
 	p := DefaultPaths()
-	if p.ConfigFile != "/c/xis/config.toml" || p.DB != "/d/xis/xis.db" {
+	if p.ConfigFile != filepath.Join(c, "xis", "config.toml") || p.DB != filepath.Join(d, "xis", "xis.db") {
+		t.Errorf("got %+v", p)
+	}
+}
+
+func TestDefaultPathsWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows folders")
+	}
+	roaming, local := t.TempDir(), t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	t.Setenv("APPDATA", roaming)
+	t.Setenv("LOCALAPPDATA", local)
+	p := DefaultPaths()
+	if p.ConfigDir != filepath.Join(roaming, "xis") || p.DataDir != filepath.Join(local, "xis") {
 		t.Errorf("got %+v", p)
 	}
 }

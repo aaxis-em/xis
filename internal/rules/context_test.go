@@ -3,10 +3,14 @@ package rules
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestRelPathThroughSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the /var symlink of macOS; symbolic links need extra rights on Windows")
+	}
 	base := t.TempDir()
 	real := filepath.Join(base, "private", "repo")
 	if err := os.MkdirAll(real, 0o755); err != nil {

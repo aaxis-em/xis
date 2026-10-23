@@ -102,11 +102,29 @@ func TestHookInstallRefusesTheHomeRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	out, err := run(t, "hook", "install", "--agent", "claude-code", "--repo", sub)
 	if err == nil || !strings.Contains(err.Error()+out, "home directory") {
 		t.Errorf("install in the home repository: %v %s", err, out)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); !os.IsNotExist(err) {
 		t.Error("settings were written")
+	}
+}
+
+func TestCommandPath(t *testing.T) {
+	for _, c := range []struct {
+		exe     string
+		windows bool
+		want    string
+	}{
+		{"/home/me/.local/bin/xis", false, "/home/me/.local/bin/xis"},
+		{"/home/me/my bin/xis", false, "'/home/me/my bin/xis'"},
+		{`C:\Users\me\AppData\Local\Programs\xis\xis.exe`, true, `"C:/Users/me/AppData/Local/Programs/xis/xis.exe"`},
+		{`C:\Program Files\xis\xis.exe`, true, `"C:/Program Files/xis/xis.exe"`},
+	} {
+		if got := commandPath(c.exe, c.windows); got != c.want {
+			t.Errorf("commandPath(%q) = %s, want %s", c.exe, got, c.want)
+		}
 	}
 }

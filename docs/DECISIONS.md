@@ -452,3 +452,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** Claude Code sends `SessionStart` again on resume and after compaction. Each event recorded the current `HEAD`, and ingest took it as the base of the session. A real two-day session got a base from the last hour. Its change lost the earlier work, and most prompts showed 0 hunks.
 - **Choice:** The base commit is the parent of the first snapshot of the session. That snapshot never changes. Without it, a stored base stays and a later `HEAD` never replaces it.
 - **Why:** The first snapshot has the `HEAD` at the start of capture as its parent, so it is the true base. A re-ingest also repairs a base that an older xis moved.
+
+## D76. Windows support
+
+- **Context:** xis compiled for Windows, but its file locks did nothing there, and nothing ran its tests on Windows. The hook commands used single quotes and backslashes, and many path checks expected forward slashes.
+- **Choice:** File locks use `LockFileEx`. The background ingest starts as a detached process. Config and data go to `%APPDATA%\xis` and `%LOCALAPPDATA%\xis`. A hook command has the path of `xis.exe` with forward slashes in double quotes. Git Bash and `cmd.exe` both accept this form. The package `pathx` compares agent paths with git paths. It ignores case, the separator and the Git Bash form `/c/...` on Windows. `doctor` does not check Unix file modes on Windows. `DESTRUCTIVE_COMMAND` also knows `Remove-Item -Recurse -Force`, `rd /s /q` and `del /s /q`. `install.ps1` installs a release from PowerShell. CI runs all tests on Windows and builds `windows/arm64`.
+- **Why:** Claude Code runs on Windows with Git for Windows, so xis can capture there. All tests also passed as Windows binaries under Wine with MinGit, before CI ran them on Windows.

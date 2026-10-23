@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -29,7 +30,7 @@ func TestRotate(t *testing.T) {
 	if fi.Size() > maxSize {
 		t.Errorf("size %d > max", fi.Size())
 	}
-	if fi.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v", fi.Mode().Perm())
 	}
 }

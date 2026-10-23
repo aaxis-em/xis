@@ -9,6 +9,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/adapters/codex"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/snapshot"
 	"github.com/aaxis-em/xis/internal/store"
 )
@@ -33,7 +34,7 @@ func (in *Ingester) ImportCodex(path, repoDir, base string) (Result, error) {
 	}
 	cwdRel := ""
 	if res.Cwd != "" {
-		if rel, err := filepath.Rel(repo.Top, res.Cwd); err == nil && !strings.HasPrefix(rel, "..") && rel != "." {
+		if rel, ok := pathx.Rel(repo.Top, res.Cwd); ok && rel != "." {
 			cwdRel = rel
 		}
 	}
@@ -117,14 +118,12 @@ func (in *Ingester) ImportCodex(path, repoDir, base string) (Result, error) {
 }
 
 func repoPath(p, cwd, cwdRel, top string) string {
-	if filepath.IsAbs(p) {
-		if rel, err := filepath.Rel(top, p); err == nil && !strings.HasPrefix(rel, "..") {
-			return filepath.ToSlash(rel)
-		}
-		if cwd != "" {
-			if rel, err := filepath.Rel(cwd, p); err == nil && !strings.HasPrefix(rel, "..") {
-				p = rel
-			}
+	if rel, ok := pathx.Rel(top, p); ok {
+		return rel
+	}
+	if cwd != "" {
+		if rel, ok := pathx.Rel(cwd, p); ok {
+			p = rel
 		}
 	}
 	return filepath.ToSlash(filepath.Join(cwdRel, p))

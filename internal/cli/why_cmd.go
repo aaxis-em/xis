@@ -12,6 +12,7 @@ import (
 
 	"github.com/aaxis-em/xis/internal/attribution"
 	"github.com/aaxis-em/xis/internal/model"
+	"github.com/aaxis-em/xis/internal/pathx"
 	"github.com/aaxis-em/xis/internal/store"
 )
 
@@ -59,16 +60,15 @@ func parseFileLine(arg, cwd, repo string) (string, int, error) {
 	if !filepath.IsAbs(file) {
 		file = filepath.Join(cwd, file)
 	}
-	rel, err := filepath.Rel(repo, file)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		if r2, err2 := filepath.EvalSymlinks(file); err2 == nil {
-			if rr, err3 := filepath.Rel(repo, r2); err3 == nil && !strings.HasPrefix(rr, "..") {
-				return filepath.ToSlash(rr), line, nil
-			}
-		}
-		return "", 0, fmt.Errorf("%s is outside the repository", arg)
+	if rel, ok := pathx.Rel(repo, file); ok {
+		return rel, line, nil
 	}
-	return filepath.ToSlash(rel), line, nil
+	if r2, err := filepath.EvalSymlinks(file); err == nil {
+		if rel, ok := pathx.Rel(repo, r2); ok {
+			return rel, line, nil
+		}
+	}
+	return "", 0, fmt.Errorf("%s is outside the repository", arg)
 }
 
 // sessionForFile returns the latest session that edited file, or the latest session.

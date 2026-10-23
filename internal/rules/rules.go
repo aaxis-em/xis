@@ -24,7 +24,7 @@ var (
 	sensitiveRe      = regexp.MustCompile(`(?i)(auth|login|password|passwd|token|crypto|session|permission|payment|billing|security|sanitiz)`)
 	secretFileRe     = regexp.MustCompile(`(?i)(^|/)(\.env[^/]*|[^/]*\.pem|[^/]*\.key|id_rsa[^/]*|[^/]*credentials[^/]*|[^/]*\.p12)$`)
 	secretInCmdRe    = regexp.MustCompile(`(?i)(^|[\s/'"=])(\.env(\.[\w.-]+)?|[\w.-]+\.pem|[\w.-]+\.key|id_rsa\w*|[\w.-]*credentials[\w.-]*|[\w.-]+\.p12)($|[\s'";|&>])`)
-	destructiveRe    = regexp.MustCompile(`(?i)\brm\s+(-\w*r\w*f\w*|-\w*f\w*r\w*|--recursive\s+--force|--force\s+--recursive)\b|\bgit\s+reset\s+--hard\b|\bgit\s+push\s+.*(--force\b|-f\b)|\bgit\s+clean\s+-\w*f|\bgit\s+checkout\s+--\s+\.|\bdrop\s+table\b|\btruncate\s+(table\s+)?\w|\bchmod\s+-R\s+777\b`)
+	destructiveRe    = regexp.MustCompile(`(?i)\brm\s+(-\w*r\w*f\w*|-\w*f\w*r\w*|--recursive\s+--force|--force\s+--recursive)\b|\bgit\s+reset\s+--hard\b|\bgit\s+push\s+.*(--force\b|-f\b)|\bgit\s+clean\s+-\w*f|\bgit\s+checkout\s+--\s+\.|\bdrop\s+table\b|\btruncate\s+(table\s+)?\w|\bchmod\s+-R\s+777\b|(?i:\b(Remove-Item|rm|ri|del|erase|rd|rmdir)\b[^;|&\n]*\s-Recurse\b[^;|&\n]*\s-Force\b|\b(Remove-Item|rm|ri|del|erase|rd|rmdir)\b[^;|&\n]*\s-Force\b[^;|&\n]*\s-Recurse\b|\b(rd|rmdir|del|erase)\s+(/[sq]\s+){2})`)
 	historyRewriteRe = regexp.MustCompile(`\bgit\s+rebase\b|\bgit\s+commit\s+.*--amend\b|\bgit\s+filter-(branch|repo)\b|\bgit\s+push\s+.*(--force\b|--force-with-lease\b|-f\b)`)
 	claimPassRe      = regexp.MustCompile(`(?i)\b(all\s+)?(the\s+)?(tests?|specs?|test suite|suite|build)\s+(now\s+|all\s+|still\s+)?(pass|passes|passed|passing|succeed|succeeds|succeeded|green|work|works)\b|\beverything\s+(works|passes)\b|\bworks\s+now\b`)
 )

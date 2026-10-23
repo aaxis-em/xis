@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -183,6 +184,9 @@ func runDoctor(a *App) []check {
 func checkPerms(p config.Paths) (string, string, string, string) {
 	if _, err := os.Stat(p.DataDir); os.IsNotExist(err) {
 		return "permissions", "warn", p.DataDir + " does not exist", "Run `xis init`."
+	}
+	if runtime.GOOS == "windows" {
+		return "permissions", "info", p.DataDir + " (protected by the access rules of your user profile)", ""
 	}
 	var bad []string
 	_ = filepath.WalkDir(p.DataDir, func(path string, d os.DirEntry, err error) error {

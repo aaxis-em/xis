@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -38,12 +39,12 @@ func TestOpenPermissionsAndMigrations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if fi.Mode().Perm() != 0o600 {
+		if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 			t.Errorf("%s mode = %v", p, fi.Mode().Perm())
 		}
 	}
 	fi, _ := os.Stat(filepath.Dir(s.Path()))
-	if fi.Mode().Perm() != 0o700 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0o700 {
 		t.Errorf("dir mode = %v", fi.Mode().Perm())
 	}
 	var mode string
