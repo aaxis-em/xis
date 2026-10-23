@@ -6,6 +6,7 @@ before:
   hooks:
     - go mod tidy
     - ./scripts/completions.sh
+    - ./scripts/notices.sh
 
 builds:
   - id: xis
@@ -33,6 +34,8 @@ archives:
     files:
       - README.md
       - LICENSE*
+      - NOTICE
+      - notices/*
       - docs/*.md
       - completions/*
 

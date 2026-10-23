@@ -76,4 +76,4 @@ The install command works only for a public repository, because it downloads wit
 
 ## License of contributions
 
-xis uses the PolyForm Noncommercial License 1.0.0, and the author also sells commercial licenses. Before you send a change, open an issue about it, so that you and the author can agree on the license of your contribution.
+xis uses the Apache License 2.0. As section 5 of the license says, the same terms apply to a change that you send.

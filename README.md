@@ -144,8 +144,6 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for the full data flow.
 
 ## License
 
-xis is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). It is not open source.
+The [Apache License 2.0](LICENSE) applies to xis. See also [NOTICE](NOTICE).
 
-You may use, change and share xis for any noncommercial purpose. Examples are personal study, hobby projects and research without a commercial application. Charities, schools, public research organizations and government institutions may also use it.
-
-Use for a commercial purpose needs a separate commercial license. Use at work for a company is an example. To get one, open an issue at <https://github.com/aaxis-em/xis/issues>.
+The name xis and the xis logo are not covered by the license.
