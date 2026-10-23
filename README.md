@@ -141,3 +141,11 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for the full data flow.
 - [Glossary](docs/GLOSSARY.md): the project terms.
 - [Decisions](docs/DECISIONS.md): the decision log.
 - [Contributing](CONTRIBUTING.md): build, test, fixtures, adapters and rules.
+
+## License
+
+xis is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). It is not open source.
+
+You may use, change and share xis for any noncommercial purpose. Examples are personal study, hobby projects and research without a commercial application. Charities, schools, public research organizations and government institutions may also use it.
+
+Use for a commercial purpose needs a separate commercial license. Use at work for a company is an example. To get one, open an issue at <https://github.com/aaxis-em/xis/issues>.

@@ -73,3 +73,7 @@ The workflow `.github/workflows/release.yml` runs the tests and GoReleaser. GoRe
 The Homebrew cask is optional. Set the repository secret `HOMEBREW_TAP_GITHUB_TOKEN` to a token that can write to `aaxis-em/homebrew-tap`. Without the secret, the release skips the cask.
 
 The install command works only for a public repository, because it downloads without a login.
+
+## License of contributions
+
+xis uses the PolyForm Noncommercial License 1.0.0, and the author also sells commercial licenses. Before you send a change, open an issue about it, so that you and the author can agree on the license of your contribution.
