@@ -92,3 +92,47 @@ func TestTruncate(t *testing.T) {
 		t.Error("short string changed")
 	}
 }
+
+// A long text that names many keywords goes the fast way; it must find the
+// same secrets as a short one.
+func TestLongTextFindsSecrets(t *testing.T) {
+	r := newR(t)
+	filler := strings.Repeat("token key secret api password auth credential sgp_ AKIA\n", 400)
+	for name, secret := range FakeSecrets {
+		out := r.String(filler + "config:\n export KEY=" + secret + "\nend\n" + filler)
+		for _, part := range secretParts(secret) {
+			if strings.Contains(out, part) {
+				t.Errorf("%s: secret survived in a long text", name)
+			}
+		}
+	}
+}
+
+func TestLongPrivateKeyInLongText(t *testing.T) {
+	body := strings.Repeat("MIIEowIBAAKCAQEA3Tz2mr7SZiAMfQyuvBjM9Oi8TjVxQsq3Lr2Kp9Wx4Yz7Nb6Hc1Jd5\n", 25)
+	key := "-----BEGIN RSA PRIVATE KEY-----\n" + body + "-----END RSA PRIVATE KEY-----"
+	filler := strings.Repeat("token key secret\n", 600)
+	rs, err := loadRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range rs.find(filler + key + "\n" + filler) {
+		if f.Rule == "private-key" {
+			return
+		}
+	}
+	t.Error("the private-key rule missed a 25-line key in a long text")
+}
+
+func TestLocalRules(t *testing.T) {
+	rs, err := loadRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"github-pat": true, "generic-api-key": true, "sourcegraph-access-token": false, "private-key": false}
+	for _, r := range rs.Rules {
+		if w, ok := want[r.ID]; ok && r.local != w {
+			t.Errorf("%s: local = %v, want %v", r.ID, r.local, w)
+		}
+	}
+}

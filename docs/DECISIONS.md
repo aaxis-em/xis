@@ -525,3 +525,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Choice:** Each diff line shows the old and the new line number, and a background color over the full line. xis compares a removed line with the added line in the same place, word by word. It marks the changed words with a stronger background. A line that changed in more than 60% of its text gets no word marks. xis highlights the old side and the new side of a hunk as two texts. It paints the tokens itself, because the chroma terminal formatter resets the background after each token.
 - **Why:** Line numbers and word marks are the features that make delta and the GitHub diff easy to scan. A rewritten line with word marks is mostly marks, so the marks only add noise.
 - **Not done yet:** side-by-side diffs, moved-code detection, a whitespace toggle, a palette for color blindness, and more context lines on request.
+
+## D88. Secret rules run near their keywords in long texts
+
+- **Context:** `xis review` took about 19 seconds to start on a large change. Two thirds of the time went to the secret rules, and most of that to one hunk: the file of the secret rules. It names every keyword, so each of the 217 rules ran its pattern over the full text.
+- **Choice:** In a text of 8 KB or more, a rule runs only on the lines around its keywords. These are the line before, the keyword line and the 2 lines after. This applies only when each match of the rule must hold one of its keywords. xis reads this from the pattern. 207 of 217 rules qualify. Some rules still scan the full text. `private-key` can match over many lines. `sourcegraph-access-token` can match without its keyword.
+- **Why:** On 8,305 real texts, the findings stayed the same and the scan took 3.6 times less time. The start of `xis review` on the change went from 19.4 to 4.5 seconds. The rest of the time goes to the full ingest of a running session (a shortcut in `ingest.go`) and to the rules.
