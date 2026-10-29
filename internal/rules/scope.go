@@ -151,7 +151,9 @@ func (s *Scope) addPrompt(text string) {
 	}
 	for _, m := range identifierRe.FindAllString(text, -1) {
 		s.Names[strings.ToLower(m)] = true
-		s.idents = append(s.idents, normIdent(m))
+		if id := normIdent(m); !slices.Contains(s.idents, id) {
+			s.idents = append(s.idents, id)
+		}
 	}
 }
 
@@ -171,7 +173,7 @@ func (s *Scope) addTool(c *Context, tc model.ToolCall) {
 func (s *Scope) finish(c *Context) {
 	s.FromPaths = len(s.Dirs) > 0 || len(s.Files) > 0
 	for _, f := range c.Files {
-		if usesIdent(c, f.Path, s.idents) {
+		if !s.Files[f.Path] && usesIdent(c, f.Path, s.idents) {
 			s.Files[f.Path] = true
 		}
 	}
@@ -230,15 +232,30 @@ func usesIdent(c *Context, file string, idents []string) bool {
 	if len(idents) == 0 {
 		return false
 	}
-	for _, h := range c.HunksOf(file) {
-		for _, l := range c.Lines(h, '+') {
-			l = normIdent(l)
-			for _, id := range idents {
-				if strings.Contains(l, id) {
-					return true
-				}
-			}
+	text := c.addedIdentText(file)
+	for _, id := range idents {
+		if strings.Contains(text, id) {
+			return true
 		}
 	}
 	return false
+}
+
+// addedIdentText is the added lines of file through normIdent, one per
+// line. Each turn of a session checks every file, so it is made once.
+func (c *Context) addedIdentText(file string) string {
+	if t, ok := c.addedIdents[file]; ok {
+		return t
+	}
+	var b strings.Builder
+	for _, h := range c.HunksOf(file) {
+		for _, l := range c.Lines(h, '+') {
+			b.WriteString(normIdent(l) + "\n")
+		}
+	}
+	if c.addedIdents == nil {
+		c.addedIdents = map[string]string{}
+	}
+	c.addedIdents[file] = b.String()
+	return c.addedIdents[file]
 }

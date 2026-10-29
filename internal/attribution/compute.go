@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aaxis-em/xis/internal/config"
@@ -339,21 +341,9 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string, preSession 
 			}
 		}
 	}
-	for _, fp := range res.Files {
-		var blame, plain map[int]string
-		hasAdded := false
-		for _, h := range fp.Hunks {
-			for _, l := range gitx.HunkLines(h) {
-				if l.Kind == '+' {
-					hasAdded = true
-				}
-			}
-		}
-		if hasAdded && !fp.Binary {
-			if b, err := e.blame(res.AttribCommit, fp.Path, true); err == nil {
-				blame = b
-			}
-		}
+	blames := e.blames(res, snapStep)
+	for fi, fp := range res.Files {
+		blame, plain := blames[fi][0], blames[fi][1]
 		lineSteps := map[int]string{}
 		res.LineSteps[fp.Path] = lineSteps
 		if len(fp.Hunks) == 0 {
@@ -393,9 +383,6 @@ func (e *Engine) buildHunks(res *Result, snapStep map[string]string, preSession 
 					if blame != nil {
 						s, ok := snapStep[blame[l.NewLine]]
 						if !ok {
-							if plain == nil {
-								plain, _ = e.blame(res.AttribCommit, fp.Path, false)
-							}
 							s, ok = snapStep[plain[l.NewLine]]
 						}
 						if ok {
@@ -465,6 +452,52 @@ func removedBy(edits []editRef, text string, known map[string]string) string {
 		}
 	}
 	return ""
+}
+
+// blames runs blame with moves for each file with added lines, and blame
+// without moves when an added line has no step. The blames are most of the
+// time of a large change, so they run in parallel.
+func (e *Engine) blames(res *Result, snapStep map[string]string) [][2]map[int]string {
+	out := make([][2]map[int]string, len(res.Files))
+	sem := make(chan struct{}, min(runtime.NumCPU(), 8))
+	var wg sync.WaitGroup
+	for i, fp := range res.Files {
+		if fp.Binary || !hasAdded(fp) {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			b, err := e.blame(res.AttribCommit, fp.Path, true)
+			if err != nil {
+				return
+			}
+			out[i][0] = b
+			for _, h := range fp.Hunks {
+				for _, l := range gitx.HunkLines(h) {
+					if _, ok := snapStep[b[l.NewLine]]; l.Kind == '+' && !ok {
+						out[i][1], _ = e.blame(res.AttribCommit, fp.Path, false)
+						return
+					}
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	return out
+}
+
+func hasAdded(fp gitx.FilePatch) bool {
+	for _, h := range fp.Hunks {
+		for _, l := range gitx.HunkLines(h) {
+			if l.Kind == '+' {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // blame with moves follows lines that a step moved, but it also gives a new

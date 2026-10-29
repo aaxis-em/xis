@@ -28,6 +28,8 @@ type Context struct {
 	Cfg         config.Config
 	Tests       *testdetect.Detector
 	Redactor    *redact.Redactor
+
+	addedIdents map[string]string
 }
 
 func NewContext(res *attribution.Result, sessions []*store.SessionData, repoTop string, cfg config.Config, red *redact.Redactor) *Context {

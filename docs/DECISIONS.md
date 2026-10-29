@@ -531,3 +531,9 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** `xis review` took about 19 seconds to start on a large change. Two thirds of the time went to the secret rules, and most of that to one hunk: the file of the secret rules. It names every keyword, so each of the 217 rules ran its pattern over the full text.
 - **Choice:** In a text of 8 KB or more, a rule runs only on the lines around its keywords. These are the line before, the keyword line and the 2 lines after. This applies only when each match of the rule must hold one of its keywords. xis reads this from the pattern. 207 of 217 rules qualify. Some rules still scan the full text. `private-key` can match over many lines. `sourcegraph-access-token` can match without its keyword.
 - **Why:** On 8,305 real texts, the findings stayed the same and the scan took 3.6 times less time. The start of `xis review` on the change went from 19.4 to 4.5 seconds. The rest of the time goes to the full ingest of a running session (a shortcut in `ingest.go`) and to the rules.
+
+## D89. Blame runs in parallel
+
+- **Context:** After D88, the analysis of the large change took 4.3 seconds, but only 1.8 seconds of it was CPU time. The rest was a wait for about 200 `git blame` runs, one after the other: one or two for each file of the change.
+- **Choice:** xis runs the blames of the files in parallel, up to 8 at a time and not more than the number of CPUs. The worker also runs the second blame without moves, when an added line has no step. The scope rule also does less work. It reads the added lines of each file once, not once for each prompt, and it keeps each identifier only once.
+- **Why:** Each blame reads the shadow repository only, so the blames do not depend on each other. The analysis took 2.1 seconds after the change, and the flags and the report stayed the same.
