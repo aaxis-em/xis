@@ -47,15 +47,26 @@ func (m *Model) Reload(d *Data) {
 	if t, ok := m.curTurn(); ok {
 		promptID = t.prompt.ID
 	}
+	onGroup := m.onGroup
 	m.data, m.keyCache = d, nil
 	m.turns, m.all = buildTurns(d), d.hunks()
 	m.prompt = -1
 	for i, t := range m.turns {
-		if t.prompt.ID == promptID {
+		if t.prompt.ID == promptID && !m.story {
 			m.prompt = i
 		}
 	}
 	m.applyPrompt()
+	if onGroup {
+		for gi, g := range m.groups {
+			if g.turn >= 0 && m.turns[g.turn].prompt.ID == promptID {
+				m.headGroup = gi
+				return
+			}
+		}
+		m.openFirstGroup()
+		return
+	}
 	m.tlSel = min(m.tlSel, max(len(d.Timeline)-1, 0))
 	if ui, hi, ok := findHunk(m.units, func(h model.Hunk) bool { return m.key(h) == curKey }); ok {
 		m.unit, m.hunk = ui, hi

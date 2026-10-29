@@ -44,7 +44,7 @@ func TestLongListsScroll(t *testing.T) {
 		sd.StepIndex[id] = len(sd.Steps)
 		sd.Steps = append(sd.Steps, model.Step{ID: id, Seq: len(sd.Steps) + 1, Kind: model.StepUserMessage, ActorID: "h", Text: fmt.Sprintf("prompt number %d", i)})
 	}
-	m := New(d, Callbacks{}, false)
+	m := byUnit(New(d, Callbacks{}, false))
 	m.Update(tea.WindowSizeMsg{Width: 150, Height: 30})
 	lines := func() []string { return strings.Split(stripANSI(m.View()), "\n") }
 

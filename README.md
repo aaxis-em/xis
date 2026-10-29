@@ -75,7 +75,7 @@ xis needs git 2.31 or later. It is one static binary for Linux, macOS and Window
 2. Go to your repository.
 3. Run `xis hook install --agent claude-code`. The command adds the hooks to `.claude/settings.json`.
 4. Use Claude Code as usual.
-5. Run `xis review` to walk through the change unit by unit.
+5. Run `xis review` to read the change prompt by prompt.
 6. Run `xis why FILE:LINE` to see the origin of one line.
 7. Run `xis precommit install` to stop commits with high-severity flags.
 8. After the commit, run `xis note write`. Then run `xis report --md` and paste the output into your pull request.

@@ -2,7 +2,6 @@ package tui
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/aaxis-em/xis/internal/model"
 )
@@ -57,6 +56,12 @@ func (t turn) wrote(d *Data, h model.Hunk) bool {
 }
 
 func (m *Model) curTurn() (turn, bool) {
+	if m.story {
+		if g := m.curGroup(); g >= 0 && g < len(m.groups) && m.groups[g].turn >= 0 {
+			return m.turns[m.groups[g].turn], true
+		}
+		return turn{}, false
+	}
 	if m.prompt < 0 || m.prompt >= len(m.turns) {
 		return turn{}, false
 	}
@@ -85,6 +90,10 @@ func (m *Model) selectPrompt(i int) {
 }
 
 func (m *Model) applyPrompt() {
+	if m.story {
+		m.buildStory()
+		return
+	}
 	t, ok := m.curTurn()
 	if !ok {
 		m.units = m.data.Units
@@ -107,17 +116,18 @@ func (m *Model) applyPrompt() {
 
 // dimOtherPrompts greys the added lines of the hunk that another prompt
 // wrote, so the lines of the selected prompt stand out in their context.
-func (m *Model) dimOtherPrompts(h model.Hunk, body []string) []string {
+func (m *Model) dimOtherPrompts(h model.Hunk, body []string, w int) []string {
 	t, ok := m.curTurn()
 	if !ok {
 		return body
 	}
 	lineSteps := m.data.LineSteps[h.FilePath]
 	_, lines := parseHunk(h)
+	digits := gutterDigits(lines)
 	out := append([]string(nil), body...)
 	for i, l := range lines {
 		if i < len(out) && l.kind == '+' && !t.steps[lineSteps[l.new]] {
-			out[i] = m.st.dim.Render("+" + strings.ReplaceAll(l.text, "\t", "    "))
+			out[i] = fit(m.st.dim.Render(gutter(l, digits)+"+ "+expandTabs(l.text)), w)
 		}
 	}
 	return out

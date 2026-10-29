@@ -512,3 +512,16 @@ This log records each decision that the specification does not settle. Each entr
 - **Context:** A real Codex 0.164 session showed each command twice. In code mode, the rollout has one `exec` call with a script, and the hooks report the tool that the script calls, with another ID. Also, an ingest without new spool lines took the session as a Claude Code session. So a second ingest of a Codex session failed with "no events".
 - **Choice:** Live ingest skips the `exec` calls of the rollout. Without new spool lines, ingest takes the agent of the stored session.
 - **Why:** The hooks already give each command with its tool name and input. A second ingest must work for each agent, for example for `xis ingest --session` or a live review.
+
+## D86. The review starts with the story of each prompt
+
+- **Context:** Users found the review screen hard to read. It showed three dense panes at once, and it grouped the hunks by change type and directory. Research on code review gives clear rules. Reviewers first build context (Gonçalves et al., 2025). Related changes must stay together, in a logical order (Baum et al., ICSE 2017). The position of a change has an effect: a defect in the last file has 64% lower odds of detection (Fregnan et al., FSE 2022). Reviewers also anchor on the story of an AI (Tufano et al., ICSE 2025).
+- **Choice:** The default view groups the hunks by prompt, file by file in the order of the edits. A story card shows the prompt, the agent reply, and the edits and test runs before any diff. Hunks that no step wrote get the group `? no prompt`. Generated files get a group at the end. The UI shows two panes, and `w` adds the explanation. `space` goes to the next hunk without a mark. `v` shows the review units of older versions.
+- **Why:** The prompt is the context that the reviewer needs first. The order of the edits is the order in which the agent thought about the change. The group `? no prompt` puts the hunks that the story does not explain in view, against the anchor effect. One focus pane shows less at once.
+
+## D87. Diffs with line numbers and word marks
+
+- **Context:** The diff showed the code with syntax colors, but only the `+` and `-` marks had the add and delete colors. It had no line numbers, and xis colored each line alone, so a comment over many lines lost its color.
+- **Choice:** Each diff line shows the old and the new line number, and a background color over the full line. xis compares a removed line with the added line in the same place, word by word. It marks the changed words with a stronger background. A line that changed in more than 60% of its text gets no word marks. xis highlights the old side and the new side of a hunk as two texts. It paints the tokens itself, because the chroma terminal formatter resets the background after each token.
+- **Why:** Line numbers and word marks are the features that make delta and the GitHub diff easy to scan. A rewritten line with word marks is mostly marks, so the marks only add noise.
+- **Not done yet:** side-by-side diffs, moved-code detection, a whitespace toggle, a palette for color blindness, and more context lines on request.

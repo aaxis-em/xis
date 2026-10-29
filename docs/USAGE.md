@@ -228,64 +228,78 @@ To commit once without the check, run `git commit --no-verify`.
 
 The command opens the review UI for a change. It takes the same change options as `xis flags`. The UI works without an LLM.
 
+The UI tells the story of the session first, prompt by prompt. Then it shows the changes of each prompt, file by file, in the order the agent made them.
+
 ```text
-┌ xis · fix-login-timeout · claude-code (live) · 42 steps · 7 files ──────── 1 high · 1 med ┐
-│ UNITS                │ calc.go  [behavior]  hunk 1/2      │ WHY                          │
-│ ▸ 1 Behavior: 2 files│ @@ -1,5 +1,6 @@                    │ Step 4 · Edit calc.go        │
-│   2 Tests  ⚑         │ +// Add returns the sum of a and b.│ Agent text near this edit:   │
-│   3 Docs: README.md  │ -    return a - b                  │  "The bug is in Add: ..."    │
-│                      │ +    return a + b                  │ Evidence: Read calc.go (s3)  │
-└──────────────────────┴────────────────────────────────────┴──────────────────────────────┘
+ ∂ xis · claude-code (live) · #1 Fix the Add function › calc.go › hunk 1/1      0/4 understood · ⚑ 1 high
+STORY                             │calc.go  [behavior]  hunk 1/1
+ ▾ #1 Fix the Add function i… ⚑  4│step 4 · Edit calc.go · test after: PASS · w: why
+›    calc.go                +2 −1 │“The bug is in Add: it subtracts. I will make it add.”
+     util.go                +1 −1 │── lines 1–6 ──────────────────────────────────────────
+     calc_test.go         ⚑ +3 −0 │1 1   package calc
+     README.md              +2 −0 │  3 + // Add returns the sum of a and b.
+ ▸ #16 Thanks. Also bump noth…  0 │4   -     return a - b
+ ? no prompt                    1 │  5 +     return a + b
+ j/k scroll · space next unreviewed · u understood · x question · w why · esc list · ? keys
 ```
 
-The UI has three panes:
+The UI has two panes:
 
 | Pane | Content |
 | --- | --- |
-| UNITS | The review units in review order, their review progress and their flags. Below them: the intent items if an LLM ran, and the prompts with the number of hunks of each prompt. |
-| DIFF | The current hunk with syntax colors, and the flags of the hunk. |
-| WHY | The steps that wrote the hunk, the agent text near the edit, the instruction, the evidence and the explanation. |
+| STORY | One row for each prompt, with its review progress and its number of hunks. The files of the selected prompt show under it. |
+| Detail | The story card of the selected prompt, or the selected hunk. |
 
-By default, the UI shows the changes of all prompts. Press `p` to review one prompt at a time. Then UNITS and DIFF show only the hunks that the steps of this prompt wrote. A line under the panes shows the prompt. Press `i` to read the full prompt on its own screen. A hunk can have lines from more than one prompt. DIFF then shows the added lines of the other prompts in grey. A jump to a hunk of another prompt, for example from the flag list, shows all prompts again.
+The story card shows the prompt, the last reply of the agent, and the edits and test runs of the prompt. The reply is a claim of the agent, not a fact. Read the card first. Then press `enter` to read the changes of the prompt.
+
+Above each hunk, a strip shows the step that wrote the hunk and the result of the next test run. It also shows the agent text before the edit. The hunk shows the old and the new line numbers. A green or red background marks the added and the removed lines. A stronger color marks the words that changed in a line. A hunk can have lines from more than one prompt. The lines of the other prompts are grey.
+
+The STORY pane puts two groups after the prompts:
+
+- `? no prompt` has the hunks that no recorded step wrote. No prompt and no agent text explains them, so read them with care.
+- `⋯ N generated files` has the hunks in lock files and generated files.
+
+Press `w` to see the full explanation of a hunk. It shows each step that wrote the hunk, the agent text, the instruction, the evidence and the LLM explanation. Press `v` to group the hunks by review unit, as in older versions. The unit view also has the intent items and the list of prompts.
 
 The UI follows its session while it is open. Every 2 seconds, it checks for new events of the agent, for example a new prompt or an edit. Then it loads the change again, and the footer says `updated from the session`. The selected hunk and the selected prompt stay selected. The UI keeps the session that it opened, also when a newer session starts.
 
-You mark each hunk. The mark in front of a unit shows its progress:
+You mark each hunk. Press `space` to go to the next hunk that has no mark. The mark in front of a prompt or a file shows its progress:
 
 | Mark | Meaning |
 | --- | --- |
 | (blank) | No hunk is understood. |
-| `◔` `◑` `◕` and a count such as `2/5` | Some hunks are understood. |
+| `◔` `◑` `◕` | Some hunks are understood. |
 | `✔` | All hunks are understood. |
 | `?` | One or more hunks are questioned. |
 
-Long lists of units and prompts scroll with the selection. A line such as `↑ 6 more` or `↓ 14 more` tells how many items are hidden.
-
-The header shows the understood hunks of the change, for example `12/40 understood`. xis keeps the status of a hunk while the file and the lines of the hunk stay the same. Thus an edit in another part of the file does not clear it. `xis report` and `xis note` count a unit as understood when all its hunks are understood.
+The header shows where you are and the understood hunks of the change, for example `12/40 understood`. xis keeps the status of a hunk while the file and the lines of the hunk stay the same. Thus an edit in another part of the file does not clear it. A hunk under two prompts has one status. `xis report` and `xis note` count a unit as understood when all its hunks are understood.
 
 The layout depends on the terminal width:
 
 | Width | Layout |
 | --- | --- |
-| 140 columns or more | Three panes. |
-| 100 to 139 columns | Two panes: UNITS and DIFF. Press `tab` to show WHY in place of DIFF. |
+| 150 columns or more | Two panes. `w` adds a third pane with the explanation. |
+| 100 to 149 columns | Two panes. `w` shows the explanation in place of the hunk. |
 | Less than 100 columns | One pane. Press `tab` to go to the next pane. |
 
 The keys are:
 
 | Key | Action |
 | --- | --- |
-| `j` / `k` | Move down or up in the focused pane. In DIFF, scroll a long hunk, then go to the next hunk. |
-| `tab` | Focus the next pane. |
-| `enter` | Expand: from UNITS to DIFF, from DIFF to WHY. |
-| `[` / `]` | Go to the previous or the next review unit. |
-| `p` / `P` | Show only the changes of the next or the previous prompt. After the last prompt, `p` shows all prompts again. |
+| `j` / `k` | Move down or up in the focused pane. On a hunk, scroll a long hunk, then go to the next hunk. |
+| `enter` | Open: from a prompt to its changes, from a hunk to its explanation. |
+| `space` | Go to the next hunk that has no mark. |
+| `tab` / `esc` | Focus the next pane, or go back to the STORY pane. |
+| `p` / `P` | Go to the next or the previous prompt. |
+| `w` | Show or hide the explanation of the hunk. |
+| `v` | Group the hunks by prompt or by review unit. |
+| `[` / `]` | Go to the previous or the next file. |
 | `i` | Show the full text of the selected prompt. |
 | `g` / `G` | Go to the top or the bottom. |
 | `n` / `N` | Go to the next or the previous flag. |
 | `/` | Search the file paths and the hunks. |
 | `u` | Mark the hunk as understood and go to the next hunk. Press again on the hunk to clear. |
-| `U` | Mark all hunks of the unit as understood. Press again to clear. |
+| `U` | Mark all hunks of the file as understood. Press again to clear. |
 | `x` | Mark the hunk as questioned. Press again to clear. |
 | `t` | Open the timeline. Press `enter` on a step to see its full (redacted) content. |
 | `f` | Open the list of flags. Press `enter` to go to the hunk of a flag. |
@@ -294,9 +308,9 @@ The keys are:
 | `?` | Show the help. |
 | `q` | Quit, or go back from a view. |
 
-xis stores the status of each unit in the database. The status stays when you open the review again.
+xis stores the status of each hunk in the database. The status stays when you open the review again.
 
-Without an LLM, the WHY pane says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact. xis leaves out text that names a different file of the session and not the file of the hunk.
+Without an LLM, the explanation says "agent text near this edit", not "rationale". The text is what the agent wrote before the edit. It is a claim, not a fact. xis leaves out text that names a different file of the session and not the file of the hunk.
 
 The default session is the session with the latest activity that has a prompt. A long session that started first can thus be the default. A session that has no prompt, for example Claude Code opened and closed again, is never the default session. Give the ID of a session to open it.
 

@@ -13,7 +13,7 @@ func TestHunkProgress(t *testing.T) {
 		SetHunkStatus: func(k, st string) error { hunks[k] = st; return nil },
 	}
 	d := testData(2, 4)
-	m := New(d, cb, false)
+	m := byUnit(New(d, cb, false))
 	m.width, m.height = 150, 40
 	glyph := func() string { return m.progressOf(m.units[0].Hunks).glyph() }
 
@@ -67,7 +67,7 @@ func TestHunkProgress(t *testing.T) {
 	}
 	d2 := testData(2, 4)
 	d2.HunkStatus = saved
-	m2 := New(d2, Callbacks{}, false)
+	m2 := byUnit(New(d2, Callbacks{}, false))
 	if p := m2.progressOf(m2.units[0].Hunks); p.glyph() != "✔" {
 		t.Errorf("saved status not shown again: %+v", p)
 	}

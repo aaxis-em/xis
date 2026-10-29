@@ -84,9 +84,9 @@ func waitFor(t *testing.T, tm *teatest.TestModel, want ...string) {
 
 func TestNavigation(t *testing.T) {
 	var saved []string
-	m := New(testData(4, 3), Callbacks{SetUnitStatus: func(id, st string) error { saved = append(saved, id+"="+st); return nil }}, false)
+	m := byUnit(New(testData(4, 3), Callbacks{SetUnitStatus: func(id, st string) error { saved = append(saved, id+"="+st); return nil }}, false))
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(150, 40))
-	waitFor(t, tm, "UNITS", "WHY", "src/auth/file0.go", "Agent text near this edit")
+	waitFor(t, tm, "UNITS", "src/auth/file0.go", "w: why")
 	for _, k := range []string{"j", "j", "u", "]", "tab", "j", "x", "G", "[", "g"} {
 		tm.Send(key(k))
 	}
@@ -108,13 +108,13 @@ func TestLayouts(t *testing.T) {
 		want    []string
 		notWant string
 	}{
-		{150, []string{"UNITS", "DIFF", "WHY"}, ""},
+		{150, []string{"UNITS", "DIFF"}, "WHY"},
 		{110, []string{"UNITS", "src/auth/file0.go"}, "WHY"},
 		{80, []string{"UNITS"}, "file0.go  [behavior]"},
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprint(c.w), func(t *testing.T) {
-			m := New(testData(2, 2), Callbacks{}, false)
+			m := byUnit(New(testData(2, 2), Callbacks{}, false))
 			m.width, m.height = c.w, 30
 			v := m.View()
 			for _, w := range c.want {
@@ -132,17 +132,16 @@ func TestLayouts(t *testing.T) {
 			}
 		})
 	}
-	m := New(testData(2, 2), Callbacks{}, false)
+	m := byUnit(New(testData(2, 2), Callbacks{}, false))
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 30))
-	tm.Send(key("tab"))
-	tm.Send(key("tab"))
+	tm.Send(key("w"))
 	waitFor(t, tm, "WHY", "Instruction")
 	tm.Send(key("q"))
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 }
 
 func TestViewsAndFlags(t *testing.T) {
-	m := New(testData(3, 2), Callbacks{}, false)
+	m := byUnit(New(testData(3, 2), Callbacks{}, false))
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(150, 40))
 	tm.Send(key("n"))
 	tm.Send(key("t"))
@@ -211,7 +210,7 @@ func stripANSI(s string) string {
 }
 
 func TestKeymapOverride(t *testing.T) {
-	m := New(testData(3, 1), Callbacks{}, false)
+	m := byUnit(New(testData(3, 1), Callbacks{}, false))
 	if err := m.SetKeymap(map[string]string{"next_unit": "ctrl+n", "quit": "Q"}); err != nil {
 		t.Fatal(err)
 	}
@@ -226,4 +225,11 @@ func TestKeymapOverride(t *testing.T) {
 	if err := m.SetKeymap(map[string]string{"fly": "z"}); err == nil {
 		t.Error("unknown action accepted")
 	}
+}
+
+// byUnit shows the review units, the grouping these tests were written for.
+func byUnit(m *Model) *Model {
+	m.toggleStory()
+	m.status = ""
+	return m
 }

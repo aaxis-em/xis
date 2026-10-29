@@ -105,8 +105,6 @@ func (d *SessionData) InstructionFor(stepID string) (model.Step, bool) {
 	return model.Step{}, false
 }
 
-// AgentTextNear returns assistant and reasoning steps of the same actor among
-// the n steps before stepID.
 // AgentTextNear returns the agent text in the n steps before stepID. Text
 // that names another file of the session, and not file, is about something
 // else and is left out.

@@ -40,7 +40,7 @@ func unitHunks(m *Model) []int {
 }
 
 func TestPromptFilter(t *testing.T) {
-	m := New(twoPromptData(), Callbacks{}, false)
+	m := byUnit(New(twoPromptData(), Callbacks{}, false))
 	m.width, m.height = 160, 40
 	if len(m.turns) != 2 || m.prompt != -1 || len(m.units) != 3 {
 		t.Fatalf("start: %d turns, prompt %d, %d units", len(m.turns), m.prompt, len(m.units))
@@ -79,7 +79,7 @@ func TestPromptFilter(t *testing.T) {
 }
 
 func TestPromptFilterDimsOtherLines(t *testing.T) {
-	m := New(twoPromptData(), Callbacks{}, true)
+	m := byUnit(New(twoPromptData(), Callbacks{}, true))
 	lipgloss.SetColorProfile(termenv.ANSI256)
 	t.Cleanup(func() { lipgloss.SetColorProfile(termenv.Ascii) })
 	m.st = newStyles(true)
@@ -88,10 +88,10 @@ func TestPromptFilterDimsOtherLines(t *testing.T) {
 	if h.ID != "h1-0" {
 		t.Fatalf("hunk %s", h.ID)
 	}
-	body := m.hl.render(h, m.st)
-	got := m.dimOtherPrompts(h, body)
-	dim := m.st.dim.Render("+    for i := 0; i < cfg.Retries; i++ {")
-	if got[1] != dim {
+	body := m.hl.render(h, m.st, 80)
+	got := m.dimOtherPrompts(h, body, 80)
+	dim := m.st.dim.Render("x")
+	if !strings.HasPrefix(got[1], strings.TrimSuffix(dim, "x\x1b[0m")) || strings.Count(got[1], "\x1b[") != 2 || !strings.Contains(got[1], "+     for i := 0") {
 		t.Errorf("line of the other prompt not dimmed: %q", got[1])
 	}
 	if got[3] != body[3] {
@@ -104,7 +104,7 @@ func TestPromptPanelShowsTheFullPrompt(t *testing.T) {
 	long := "Fix all of these:\n" + strings.Repeat("- one more item that the agent must fix in this change\n", 30) + "LAST LINE"
 	sd := d.Sessions["s1"]
 	sd.Steps[4].Text = long
-	m := New(d, Callbacks{}, false)
+	m := byUnit(New(d, Callbacks{}, false))
 	m.width, m.height = 160, 40
 
 	m.Update(key("p"))

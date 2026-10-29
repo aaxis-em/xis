@@ -13,7 +13,8 @@ import (
 
 const (
 	unitsWidth = 28
-	whyWidth   = 42
+	storyWidth = 34
+	whyWidth   = 44
 )
 
 func (m *Model) View() string {
@@ -38,17 +39,46 @@ func (m *Model) View() string {
 func (m *Model) header() string {
 	d := m.data
 	brand := " ∂ xis "
-	left := fmt.Sprintf("· %s · %s (%s) · %d steps · %d files ", textx.OneLine(d.Title, 40), d.Agent, d.Fidelity, d.Steps, d.Files)
+	left := fmt.Sprintf("· %s (%s) · %s ", d.Agent, d.Fidelity, m.crumbs())
 	if strings.Contains(d.Status, "no_transcript") {
 		left += "· no transcript "
 	}
 	p := m.progressOf(m.all)
-	right := fmt.Sprintf(" %d/%d understood · %d high · %d med ", p.understood, p.total, d.flagCount(model.SevHigh), d.flagCount(model.SevMedium))
+	right := fmt.Sprintf(" %d/%d understood ", p.understood, p.total)
+	if n := d.flagCount(model.SevHigh); n > 0 {
+		right += fmt.Sprintf("· ⚑ %d high ", n)
+	}
+	if n := d.flagCount(model.SevMedium); n > 0 {
+		right += fmt.Sprintf("· %d med ", n)
+	}
 	fill := m.width - lipgloss.Width(brand) - lipgloss.Width(left) - lipgloss.Width(right)
 	if fill < 1 {
 		return m.st.brand.Render(brand) + m.st.header.Render(fit(left+right, max(m.width-lipgloss.Width(brand), 0)))
 	}
 	return m.st.brand.Render(brand) + m.st.header.Render(left+strings.Repeat("─", fill)+right)
+}
+
+// crumbs says where the cursor is: prompt › file › hunk.
+func (m *Model) crumbs() string {
+	var parts []string
+	if m.story {
+		if g := m.curGroup(); g >= 0 && g < len(m.groups) {
+			parts = append(parts, textx.OneLine(m.groupTitle(m.groups[g]), 32))
+		}
+	} else if u, ok := m.curUnit(); ok {
+		parts = append(parts, textx.OneLine(u.Title, 32))
+	}
+	if h, ok := m.curHunk(); ok {
+		u, _ := m.curUnit()
+		if m.story {
+			parts = append(parts, h.FilePath)
+		}
+		parts = append(parts, fmt.Sprintf("hunk %d/%d", m.hunk+1, len(u.Hunks)))
+	}
+	if len(parts) == 0 {
+		return textx.OneLine(m.data.Title, 40)
+	}
+	return strings.Join(parts, " › ")
 }
 
 func (m *Model) footer() string {
@@ -58,8 +88,15 @@ func (m *Model) footer() string {
 	if m.status != "" {
 		return m.st.footer.Render(fit(" "+m.status, m.width))
 	}
+	main := " j/k move · enter open · space next unreviewed · p/P prompt · w why · ? keys"
+	switch {
+	case m.focus == paneDiff && !m.onGroup:
+		main = " j/k scroll · space next unreviewed · u understood · x question · w why · esc list · ? keys"
+	case m.focus == paneWhy:
+		main = " j/k scroll · w close · esc list · ? keys"
+	}
 	keys := map[viewKind]string{
-		viewMain:     " j/k move  tab pane  p/P prompt  i full prompt  enter expand  u/U understood (hunk/unit)  x question  t timeline  f flags  a ask  o editor  ? help  q quit",
+		viewMain:     main,
 		viewTimeline: " j/k move  enter open step  g/G top/bottom  esc back  q back",
 		viewStep:     " j/k scroll  enter jump to hunk  esc back",
 		viewFlags:    " j/k move  enter jump to hunk  esc back",
@@ -97,30 +134,45 @@ func (m *Model) viewMain() []string {
 }
 
 func (m *Model) panes(h int) []string {
+	left, leftW := m.unitsPane, unitsWidth
+	if m.story {
+		left, leftW = m.storyPane, storyWidth
+	}
 	switch m.layout() {
 	case 3:
-		diffW := m.width - unitsWidth - whyWidth - 2
-		return join(m.unitsPane(unitsWidth, h), m.diffPane(diffW, h), m.whyPane(whyWidth, h))
+		return join(left(leftW, h), m.detailPane(m.width-leftW-whyWidth-2, h), m.whyPane(whyWidth, h))
 	case 2:
-		rightW := m.width - unitsWidth - 1
-		right := m.diffPane(rightW, h)
-		if m.focus == paneWhy {
+		rightW := m.width - leftW - 1
+		right := m.detailPane(rightW, h)
+		if m.showWhy {
 			right = m.whyPane(rightW, h)
 		}
-		return join(m.unitsPane(unitsWidth, h), right)
+		return join(left(leftW, h), right)
 	}
 	switch m.focus {
 	case paneDiff:
-		return m.diffPane(m.width, h)
+		return m.detailPane(m.width, h)
 	case paneWhy:
 		return m.whyPane(m.width, h)
 	}
-	return m.unitsPane(m.width, h)
+	return left(m.width, h)
+}
+
+// detailPane is the story card of a prompt when the cursor is on its
+// heading, and the diff otherwise.
+func (m *Model) detailPane(w, h int) []string {
+	if m.story && m.onGroup && m.headGroup < len(m.groups) {
+		return m.storyCard(w, h)
+	}
+	return m.diffPane(w, h)
 }
 
 // promptPanel is one line under the panes with the selected prompt. "i"
 // opens the full prompt on its own screen.
 func (m *Model) promptPanel() []string {
+	if m.story {
+		return nil
+	}
 	t, ok := m.curTurn()
 	if !ok {
 		return nil
@@ -298,9 +350,10 @@ func (m *Model) diffPane(w, h int) []string {
 	}
 	lines := []string{m.paneTitle(fit(title, w), paneDiff)}
 	header, _ := parseHunk(hk)
-	body := m.dimOtherPrompts(hk, m.hl.render(hk, m.st))
-	content := []string{m.st.dim.Render(header)}
-	content = append(content, body...)
+	content := m.contextStrip(hk, w)
+	rng := "── " + hunkRange(hk, header) + " "
+	content = append(content, m.st.dim.Render(fit(rng+strings.Repeat("─", max(w-lipgloss.Width(rng), 0)), w)))
+	content = append(content, m.dimOtherPrompts(hk, m.hl.render(hk, m.st, w), w)...)
 	for _, f := range m.data.flagsForHunk(hk) {
 		sup := ""
 		if f.Suppressed {
@@ -334,6 +387,11 @@ func (m *Model) whyPane(w, h int) []string {
 	}
 	var sd *store.SessionData
 	var first model.Step
+	type said struct {
+		st   model.Step
+		text string
+	}
+	var near []said
 	for i, id := range stepIDs {
 		st, d, ok := m.data.step(id)
 		if !ok {
@@ -356,6 +414,11 @@ func (m *Model) whyPane(w, h int) []string {
 			}
 		}
 		add(fmt.Sprintf("Step %d · %s%s · %d lines", st.Seq, textx.OneLine(st.Text, 60), who, lines_))
+		if i > 0 && i < 3 {
+			if t := d.AgentTextNear(st.ID, hk.FilePath, 1); len(t) > 0 {
+				near = append(near, said{st, t[0].Text})
+			}
+		}
 	}
 	if unattributed > 0 && len(stepIDs) > 0 {
 		add(m.st.dim.Render(fmt.Sprintf("%d lines unattributed", unattributed)))
@@ -374,6 +437,10 @@ func (m *Model) whyPane(w, h int) []string {
 			for _, t := range near {
 				add(m.st.quote.Render(fmt.Sprintf("  %q", textx.OneLine(t.Text, 240))))
 			}
+		}
+		for _, n := range near {
+			add(fmt.Sprintf("Before step %d:", n.st.Seq))
+			add(m.st.quote.Render(fmt.Sprintf("  %q", textx.OneLine(n.text, 240))))
 		}
 		if ins, ok := sd.InstructionFor(first.ID); ok {
 			add(fmt.Sprintf("Instruction: #%d %q", ins.Seq, textx.OneLine(ins.Text, 120)))
@@ -521,10 +588,13 @@ func (m *Model) viewAsk() []string {
 func (m *Model) viewHelp() []string {
 	rows := [][2]string{
 		{"j / k", "move down / up in the focused pane"},
-		{"tab", "focus the next pane"},
-		{"enter", "expand: units → diff → why"},
-		{"[ / ]", "previous / next review unit"},
-		{"p / P", "show only the changes of the next / previous prompt, then all again"},
+		{"tab", "focus the next pane (esc: back to the list)"},
+		{"enter", "open: prompt → its changes → why"},
+		{"space", "go to the next hunk that is not marked"},
+		{"w", "show or hide why the hunk exists"},
+		{"v", "group by prompt (story) or by review unit"},
+		{"[ / ]", "previous / next file or review unit"},
+		{"p / P", "next / previous prompt"},
 		{"i", "read the full text of the selected prompt"},
 		{"g / G", "top / bottom"},
 		{"n / N", "next / previous flag"},

@@ -44,6 +44,6 @@ func (m *Model) translate(key string) string {
 
 // SetLightTheme uses a syntax style for light terminals.
 func (m *Model) SetLightTheme() {
-	m.hl.style = "github"
+	m.hl.style, m.hl.bg = "github", lightDiff
 	m.hl.cache = map[string][]string{}
 }

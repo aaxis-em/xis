@@ -9,13 +9,13 @@ import (
 func TestRefreshKeepsSelection(t *testing.T) {
 	next := twoPromptData()
 	calls := 0
-	m := New(twoPromptData(), Callbacks{Refresh: func() (*Data, error) {
+	m := byUnit(New(twoPromptData(), Callbacks{Refresh: func() (*Data, error) {
 		calls++
 		if calls == 1 {
 			return nil, nil
 		}
 		return next, nil
-	}}, false)
+	}}, false))
 	if m.Init() == nil {
 		t.Fatal("no refresh tick with a Refresh callback")
 	}

@@ -41,6 +41,17 @@ func TestE2EReviewData(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 150, Height: 30})
 	if os.Getenv("XIS_SHOW_TUI") != "" {
 		t.Log("\n" + m.View())
+		for _, k := range []string{"enter", " ", "esc", "j", "j", "j", "j", "j"} {
+			key := tea.Key{Type: tea.KeyRunes, Runes: []rune(k)}
+			switch k {
+			case "enter":
+				key = tea.Key{Type: tea.KeyEnter}
+			case "esc":
+				key = tea.Key{Type: tea.KeyEsc}
+			}
+			m.Update(tea.KeyMsg(key))
+			t.Log("after " + k + "\n" + m.View())
+		}
 	}
 }
 

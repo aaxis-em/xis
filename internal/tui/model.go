@@ -55,6 +55,14 @@ type Model struct {
 	keyCache map[string]string
 	all      []model.Hunk
 
+	// story groups the hunks by prompt; false shows the review units.
+	story     bool
+	groups    []group
+	unitGroup []int
+	onGroup   bool
+	headGroup int
+	showWhy   bool
+
 	unit, hunk int
 	diffScroll int
 	whyScroll  int
@@ -79,12 +87,28 @@ type Model struct {
 func New(d *Data, cb Callbacks, color bool) *Model {
 	in := textinput.New()
 	in.CharLimit = 500
-	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, prompt: -1}
+	m := &Model{data: d, cb: cb, st: newStyles(color), hl: newHighlighter(color), color: color, width: 120, height: 40, flagCursor: -1, input: in, prompt: -1, story: true}
 	m.turns = buildTurns(d)
 	m.all = d.hunks()
 	m.applyPrompt()
+	m.openFirstGroup()
 	m.Editor = defaultEditor
 	return m
+}
+
+// openFirstGroup shows the story card of the first group with changes.
+func (m *Model) openFirstGroup() {
+	if !m.story || len(m.groups) == 0 {
+		m.onGroup = false
+		return
+	}
+	m.onGroup, m.headGroup = true, 0
+	for gi, g := range m.groups {
+		if len(g.units) > 0 {
+			m.headGroup = gi
+			return
+		}
+	}
 }
 
 func defaultEditor(file string, line int) *exec.Cmd {
@@ -109,7 +133,7 @@ type editorDoneMsg struct{ err error }
 
 func (m *Model) layout() int {
 	switch {
-	case m.width >= 140:
+	case m.width >= 150 && m.showWhy:
 		return 3
 	case m.width >= 100:
 		return 2
@@ -118,7 +142,7 @@ func (m *Model) layout() int {
 }
 
 func (m *Model) curUnit() (Unit, bool) {
-	if m.unit < 0 || m.unit >= len(m.units) {
+	if m.onGroup || m.unit < 0 || m.unit >= len(m.units) {
 		return Unit{}, false
 	}
 	return m.units[m.unit], true
@@ -137,7 +161,7 @@ func (m *Model) selectUnit(i int) {
 		return
 	}
 	m.unit = max(0, min(i, len(m.units)-1))
-	m.hunk, m.diffScroll, m.whyScroll = 0, 0, 0
+	m.hunk, m.diffScroll, m.whyScroll, m.onGroup = 0, 0, 0, false
 }
 
 func (m *Model) selectHunk(i int) {
@@ -176,7 +200,7 @@ func (m *Model) locate(match func(model.Hunk) bool) (int, int, bool) {
 
 func (m *Model) jumpToHunk(id string) bool {
 	if ui, hi, ok := m.locate(func(h model.Hunk) bool { return h.ID == id }); ok {
-		m.unit, m.hunk, m.diffScroll, m.whyScroll = ui, hi, 0, 0
+		m.unit, m.hunk, m.diffScroll, m.whyScroll, m.onGroup = ui, hi, 0, 0, false
 		return true
 	}
 	return false
@@ -188,7 +212,7 @@ func (m *Model) jumpToFlag(f model.Flag) bool {
 		return m.jumpToHunk(f.TargetID)
 	case "file":
 		if ui, hi, ok := m.locate(func(h model.Hunk) bool { return h.FilePath == f.TargetID }); ok {
-			m.unit, m.hunk, m.diffScroll = ui, hi, 0
+			m.unit, m.hunk, m.diffScroll, m.onGroup = ui, hi, 0, false
 			return true
 		}
 	case "step":
@@ -325,7 +349,7 @@ func (m *Model) search(q string) {
 		p := all[(start+i)%len(all)]
 		h := m.units[p.u].Hunks[p.h]
 		if strings.Contains(strings.ToLower(h.FilePath), q) || strings.Contains(strings.ToLower(h.Patch), q) {
-			m.unit, m.hunk, m.diffScroll = p.u, p.h, 0
+			m.unit, m.hunk, m.diffScroll, m.onGroup = p.u, p.h, 0, false
 			m.status = fmt.Sprintf("found %q in %s", q, h.FilePath)
 			return
 		}
@@ -415,27 +439,37 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "tab":
-		m.focus = (m.focus + 1) % 3
+		m.focus = (m.focus + 1) % m.panesShown()
 	case "shift+tab":
-		m.focus = (m.focus + 2) % 3
+		m.focus = (m.focus + m.panesShown() - 1) % m.panesShown()
+	case "esc":
+		m.focus = paneUnits
 	case "j", "down":
 		m.move(1)
 	case "k", "up":
 		m.move(-1)
 	case "g", "home":
-		switch m.focus {
-		case paneUnits:
+		switch {
+		case m.story && m.focus == paneUnits:
+			if rows, _ := m.outline(); len(rows) > 0 {
+				m.setRow(rows[0])
+			}
+		case m.focus == paneUnits:
 			m.selectUnit(0)
-		case paneDiff:
+		case m.focus == paneDiff:
 			m.selectHunk(0)
 		default:
 			m.whyScroll = 0
 		}
 	case "G", "end":
-		switch m.focus {
-		case paneUnits:
+		switch {
+		case m.story && m.focus == paneUnits:
+			if rows, _ := m.outline(); len(rows) > 0 {
+				m.setRow(rows[len(rows)-1])
+			}
+		case m.focus == paneUnits:
 			m.selectUnit(len(m.units) - 1)
-		case paneDiff:
+		case m.focus == paneDiff:
 			u, _ := m.curUnit()
 			m.selectHunk(len(u.Hunks) - 1)
 		default:
@@ -446,21 +480,44 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.stepID, m.stepScroll = t.prompt.ID, 0
 			m.prev, m.view = viewMain, viewStep
 		}
-	case "p":
-		m.selectPrompt(m.prompt + 1)
-	case "P":
-		m.selectPrompt(m.prompt - 1)
+	case "p", "P":
+		d := 1
+		if msg.String() == "P" {
+			d = -1
+		}
+		if m.story {
+			m.nextGroup(d)
+		} else {
+			m.selectPrompt(m.prompt + d)
+		}
 	case "[":
 		m.selectUnit(m.unit - 1)
 	case "]":
 		m.selectUnit(m.unit + 1)
 	case "enter":
-		switch m.focus {
-		case paneUnits:
+		switch {
+		case m.onGroup:
+			if u := m.groups[m.headGroup].units; len(u) > 0 {
+				m.selectUnit(u[0])
+				m.focus = paneDiff
+			} else {
+				m.status = "this prompt changed no lines"
+			}
+		case m.focus == paneUnits:
 			m.focus = paneDiff
-		case paneDiff:
+		case m.focus == paneDiff:
+			m.showWhy, m.focus = true, paneWhy
+		}
+	case " ":
+		m.nextUnreviewed()
+	case "w":
+		m.showWhy = !m.showWhy
+		m.focus = paneDiff
+		if m.showWhy {
 			m.focus = paneWhy
 		}
+	case "v":
+		m.toggleStory()
 	case "u":
 		m.markHunk("understood")
 	case "U":
@@ -488,17 +545,21 @@ func (m *Model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) move(d int) {
-	switch m.focus {
-	case paneUnits:
+	switch {
+	case m.focus == paneUnits && m.story:
+		m.moveOutline(d)
+	case m.focus == paneUnits:
 		m.selectUnit(m.unit + d)
-	case paneDiff:
+	case m.focus == paneDiff && m.onGroup:
+		m.whyScroll = max(0, m.whyScroll+d)
+	case m.focus == paneDiff:
 		h, ok := m.curHunk()
 		if !ok {
 			return
 		}
 		_, lines := parseHunk(h)
-		visible := m.mainHeight() - 3
-		if d > 0 && m.diffScroll+visible < len(lines)+2 {
+		visible := m.mainHeight() - 1
+		if d > 0 && m.diffScroll+visible < len(lines)+4+3*len(m.data.flagsForHunk(h)) {
 			m.diffScroll += 3
 			return
 		}
@@ -516,8 +577,35 @@ func (m *Model) move(d int) {
 			return
 		}
 		m.selectHunk(m.hunk + d)
-	case paneWhy:
+	case m.focus == paneWhy:
 		m.whyScroll = max(0, m.whyScroll+d)
+	}
+}
+
+// panesShown is the number of panes that tab cycles through.
+func (m *Model) panesShown() pane {
+	if m.showWhy {
+		return 3
+	}
+	return 2
+}
+
+// toggleStory switches between the story of the prompts and the review
+// units, and keeps the selected hunk.
+func (m *Model) toggleStory() {
+	cur, ok := m.curHunk()
+	m.story, m.prompt = !m.story, -1
+	m.applyPrompt()
+	m.onGroup = false
+	if ui, hi, found := findHunk(m.units, func(h model.Hunk) bool { return h.ID == cur.ID }); ok && found {
+		m.unit, m.hunk = ui, hi
+	} else {
+		m.unit, m.hunk = 0, 0
+		m.openFirstGroup()
+	}
+	m.status = "grouped by review unit"
+	if m.story {
+		m.status = "grouped by prompt"
 	}
 }
 

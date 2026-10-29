@@ -109,9 +109,13 @@ func (m *Model) markHunk(status string) {
 
 // markUnit marks every visible hunk of the unit understood, or clears them
 // when all are understood already.
+// On a prompt heading, it marks every hunk of the prompt.
 func (m *Model) markUnit() {
 	u, ok := m.curUnit()
-	if !ok {
+	if m.onGroup && m.headGroup < len(m.groups) {
+		u, ok = Unit{Hunks: m.groupHunks(m.groups[m.headGroup])}, true
+	}
+	if !ok || len(u.Hunks) == 0 {
 		return
 	}
 	status := "understood"
@@ -119,7 +123,7 @@ func (m *Model) markUnit() {
 		status = "unreviewed"
 	}
 	if m.saveHunkStatus(u.Hunks, status) {
-		m.status = fmt.Sprintf("unit %d: %d hunks %s", m.unit+1, len(u.Hunks), status)
+		m.status = fmt.Sprintf("%d hunks %s", len(u.Hunks), status)
 	}
 }
 
